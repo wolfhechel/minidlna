@@ -531,6 +531,11 @@ AC_ARG_WITH(log-path,
 	[with_logpath="$withval"],[with_logpath="/var/log"])
 AC_DEFINE_UNQUOTED([DEFAULT_LOG_PATH],"${with_logpath}",[Log path])
 
+AC_ARG_WITH(run-path,
+	AS_HELP_STRING([--with-run-path=PATH],[Default run path]),
+	[with_runpath="$withval"],[with_runpath="/var/run"])
+AC_DEFINE_UNQUOTED([DEFAULT_RUN_PATH],"${with_runpath}",[Run path])
+
 
 AC_ARG_WITH(db-path,
 	AS_HELP_STRING([--with-db-path=PATH],[Default DB path]),
