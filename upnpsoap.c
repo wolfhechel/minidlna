@@ -1342,7 +1342,7 @@ browse_error:
 	free(str.data);
 }
 
-inline void
+static inline void
 charcat(struct string_s *str, char c)
 {
 	if (str->size <= str->off)
