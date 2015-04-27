@@ -138,6 +138,8 @@ endif ()
 
 add_subdirectory (po)
 
+get_property (CMAKE_REQUIRED_INCLUDES DIRECTORY ${CMAKE_SOURCE_DIR} PROPERTY INCLUDE_DIRECTORIES)
+
 include (cmake/Includes/ConfigureChecks.cmake)
 
 configure_file (
