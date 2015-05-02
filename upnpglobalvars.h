@@ -222,6 +222,8 @@ extern char pnpx_hwid[];
 typedef struct img_t {
 	uint8_t* data;
 	long size;
+	uint8_t loaded;
+	char * submime;
 } img_t;
 
 extern img_t png_sm, png_lrg, jpeg_sm, jpeg_lrg;

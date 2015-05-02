@@ -475,26 +475,32 @@ static void init_nls(void) {
 
 static void read_file(img_t* img, const char* dir, const char *filename) {
 	char path[1024];
+
 	sprintf( path, "%s/%s", dir, filename);
-	FILE *file = fopen(path, "rb");
+	FILE * file = fopen(path, "rb");
+
 	if(!file) {
 		char err[1024];
 		sprintf(err, "Failed to open path %s", path);
 
 		perror(err);
-		exit(EXIT_FAILURE);
-	}
-	fseek( file , 0L , SEEK_END);
-	img->size = ftell( file );
-	rewind( file );
+		img->loaded = 0;
+	} else {
+		fseek(file, 0L, SEEK_END);
+		img->size = ftell(file);
+		rewind(file);
 
-	img->data = calloc(img->size + 1, sizeof(char));
-	if(!img->data) {
-		perror("read_file(): failed to allocate memory");
-		exit(EXIT_FAILURE);
+		img->data = calloc(img->size + 1, sizeof(char));
+		if (!img->data) {
+			perror("read_file(): failed to allocate memory");
+			img->loaded = 0;
+		} else {
+			fread(img->data, sizeof(char), img->size, file);
+			img->loaded = 1;
+		}
+
+		fclose(file);
 	}
-	fread(img->data, sizeof(char), img->size, file);
-	fclose(file);
 }
 
 /* init phase :
