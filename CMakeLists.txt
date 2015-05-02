@@ -2,11 +2,13 @@ cmake_minimum_required (VERSION 2.8)
 
 project (MiniDLNA)
 
+string (TOLOWER ${CMAKE_PROJECT_NAME} PACKAGE_NAME)
+
 set (MiniDLNA_VERSION_MAJOR 1)
 set (MiniDLNA_VERSION_MINOR 1)
 set (MiniDLNA_VERSION_PATCH 3)
 set (MiniDLNA_VERSION "${MiniDLNA_VERSION_MAJOR}.${MiniDLNA_VERSION_MINOR}.${MiniDLNA_VERSION_PATCH}")
-set (MiniDLNA_PACKAGE_NAME minidlna)
+set (MiniDLNA_PACKAGE_NAME ${PACKAGE_NAME})
 
 set (SOURCES minidlna.c
              upnphttp.c
@@ -47,6 +49,11 @@ set (HEADERS codelength.h
              minidlnatypes.h)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
+
+include (GNUInstallDirs)
+
+set (PROJECT_DATADIR "${CMAKE_INSTALL_DATADIR}/${PACKAGE_NAME}"
+     CACHE PATH "Projects data directory [DATADIR]/${PACKAGE_NAME}]")
 
 include_directories (${PROJECT_SOURCE_DIR})
 include_directories (${PROJECT_BINARY_DIR})
@@ -138,7 +145,9 @@ endif ()
 
 add_subdirectory (po)
 
-get_property (CMAKE_REQUIRED_INCLUDES DIRECTORY ${CMAKE_SOURCE_DIR} PROPERTY INCLUDE_DIRECTORIES)
+get_property (CMAKE_REQUIRED_INCLUDES
+              DIRECTORY ${CMAKE_SOURCE_DIR}
+              PROPERTY INCLUDE_DIRECTORIES)
 
 include (cmake/Includes/ConfigureChecks.cmake)
 
@@ -149,4 +158,28 @@ configure_file (
 
 add_executable(minidlnad ${SOURCES} ${HEADERS})
 
+add_custom_command(TARGET minidlnad PRE_BUILD
+                   COMMAND ${CMAKE_COMMAND} -E copy_directory
+                   ${CMAKE_SOURCE_DIR}/icons "${CMAKE_BINARY_DIR}/${PROJECT_DATADIR}")
+
 target_link_libraries (minidlnad ${minidlnad_LIBS})
+
+# Install binary
+install (TARGETS minidlnad
+         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+
+# Install shared data
+install (DIRECTORY icons
+         DESTINATION ${PROJECT_DATADIR})
+
+# Install configuration
+install (FILES minidlna.conf
+         DESTINATION ${CMAKE_INSTALL_SYSCONFDIR})
+
+# Install manual pages
+# TODO: Compress manual pages
+foreach (manpage RANGE 0 8)
+    FILE(GLOB manfiles "${CMAKE_CURRENT_SOURCE_DIR}/*.${manpage}")
+
+    install (FILES ${manfiles} DESTINATION ${CMAKE_INSTALL_MANDIR}/man${manpage})
+endforeach ()

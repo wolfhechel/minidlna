@@ -11,6 +11,7 @@ set (ROOTDEV_MODELURL "${OS_URL}")
 set (DEFAULT_LOG_PATH "/var/log" CACHE PATH "Default log path")
 set (DEFAULT_RUN_PATH "/var/run" CACHE PATH "Default run path")
 set (DEFAULT_DB_PATH "/var/cache/minidlna" CACHE PATH "Default DB path")
+set (DATA_PATH ${PROJECT_DATADIR})
 
 option (TIVO_SUPPORT "enable TiVo support" OFF)
 option (NETGEAR "enable generic NETGEAR device support" OFF)

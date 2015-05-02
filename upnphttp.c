@@ -87,8 +87,6 @@
 
 #define INIT_STR(s, d) { s.data = d; s.size = sizeof(d); s.off = 0; }
 
-#include "icons.c"
-
 enum event_type {
 	E_INVALID,
 	E_SUBSCRIBE,
@@ -1341,34 +1339,42 @@ SendResp_icon(struct upnphttp * h, char * icon)
 	char *data;
 	int size;
 	struct string_s str;
+	img_t * icon_img = NULL;
 
 	if( strcmp(icon, "sm.png") == 0 )
 	{
 		DPRINTF(E_DEBUG, L_HTTP, "Sending small PNG icon\n");
-		data = (char *)png_sm;
-		size = sizeof(png_sm)-1;
-		strcpy(mime+6, "png");
+		icon_img = &png_sm;
 	}
 	else if( strcmp(icon, "lrg.png") == 0 )
 	{
 		DPRINTF(E_DEBUG, L_HTTP, "Sending large PNG icon\n");
-		data = (char *)png_lrg;
-		size = sizeof(png_lrg)-1;
-		strcpy(mime+6, "png");
+		icon_img = &png_lrg;
 	}
 	else if( strcmp(icon, "sm.jpg") == 0 )
 	{
 		DPRINTF(E_DEBUG, L_HTTP, "Sending small JPEG icon\n");
-		data = (char *)jpeg_sm;
-		size = sizeof(jpeg_sm)-1;
-		strcpy(mime+6, "jpeg");
+		icon_img = &jpeg_sm;
 	}
 	else if( strcmp(icon, "lrg.jpg") == 0 )
 	{
 		DPRINTF(E_DEBUG, L_HTTP, "Sending large JPEG icon\n");
-		data = (char *)jpeg_lrg;
-		size = sizeof(jpeg_lrg)-1;
-		strcpy(mime+6, "jpeg");
+		icon_img = &jpeg_lrg;
+	}
+
+	if ((icon_img != NULL) && icon_img->loaded == 1)
+	{
+		data = (char *)icon_img->data;
+		size = icon_img->size;
+
+		if (strcmp(icon, ".jpg") == 0)
+		{
+			strcpy((mime+6), "jpeg");
+		}
+		else if (strcmp(icon, ".png") == 0)
+		{
+			strcpy((mime+6), "png");
+		}
 	}
 	else
 	{

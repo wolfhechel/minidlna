@@ -10,6 +10,9 @@
 /* Run path */
 #cmakedefine DEFAULT_RUN_PATH "@DEFAULT_LOG_PATH@"
 
+/* Shared data path */
+#cmakedefine DATA_PATH "@DATA_PATH@"
+
 /* Define to 1 if translation of program messages to the user's native
    language is requested. */
 #cmakedefine ENABLE_NLS 1

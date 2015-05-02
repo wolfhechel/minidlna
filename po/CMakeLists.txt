@@ -13,7 +13,7 @@ if (GETTEXT_FOUND)
             GETTEXT_PROCESS_PO_FILES(${LANG} ALL PO_FILES ${LANG}.po)
             install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${LANG}.gmo"
                     DESTINATION "${CMAKE_INSTALL_FULL_LOCALEDIR}/${LANG}/LC_MESSAGES"
-                    RENAME "${GETTEXT_PACKAGE}.mo")
+                    RENAME "${PACKAGE_NAME}.mo")
             endforeach ()
     endif()
 endif ()
