@@ -37,5 +37,5 @@ Justin Maggard
 
 Features
 ==================
-
 - support dynamic icons by loading from pkgdatadir/icons
+- sort items by their natural ordering when presenting to DLNA player

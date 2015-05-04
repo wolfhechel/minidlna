@@ -38,7 +38,8 @@ set (SOURCES minidlna.c
              log.c
              video_thumb.c
              containers.c
-             tagutils/tagutils.c)
+             tagutils/tagutils.c
+             naturalsort.c)
 
 set (HEADERS codelength.h
              config.h
