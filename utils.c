@@ -144,6 +144,28 @@ strcasestrc(const char *s, const char *p, const char t)
 	return NULL;
 } 
 
+/* Copies characters from one buffer to another; size is maximum size of dst buffer */
+void
+x_strlcpy(char *dst, const char *src, size_t size)
+{
+	while (--size > 0 && *src != '\0') {
+		*dst++ = *src++;
+	}
+	*dst = '\0';
+}
+
+/* Appends characters from one buffer to another; size is maximum size of dst buffer */
+void
+x_strlcat(char *dst, const char *src, size_t size)
+{
+	while (size > 0 && *dst != '\0') {
+		size--;
+		dst++;
+	}
+
+	x_strlcpy(dst, src, size);
+}
+
 char *
 modifyString(char *string, const char *before, const char *after, int noalloc)
 {
@@ -231,13 +253,17 @@ escape_tag(const char *tag, int force_alloc)
 char *
 strip_ext(char *name)
 {
-	char *period;
+	return strip_char(name, '.');
+}
 
-	period = strrchr(name, '.');
-	if (period)
-		*period = '\0';
+char *
+strip_char(char *name, char c)
+{
+	char *last_occurence = strrchr(name, c);
+	if (last_occurence)
+		*last_occurence = '\0';
 
-	return period;
+	return last_occurence;
 }
 
 /* Code basically stolen from busybox */
@@ -420,7 +446,7 @@ is_caption(const char * file)
 int
 is_album_art(const char * name)
 {
-	struct album_art_name_s * album_art_name;
+	struct linked_names_s * album_art_name;
 
 	/* Check if this file name matches one of the default album art names */
 	for( album_art_name = album_art_names; album_art_name; album_art_name = album_art_name->next )

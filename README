@@ -39,3 +39,9 @@ Features
 ==================
 - support dynamic icons by loading from pkgdatadir/icons
 - sort items by their natural ordering when presenting to DLNA player
+- add new entries scanned from metadata: year, actors, director, (short/long) description, author, rating
+- add support for tv series / shows with metadata: air date, season, episode, episode title
+- improve UPNP reply types for video mime-type for director, album art, episodes
+- present metadata for folders to support virtual tv show folders.
+- add option to ignore certain paths from scanning
+- new virtual containers, 'Tv Shows' and 'Movies'

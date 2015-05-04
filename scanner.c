@@ -138,10 +138,86 @@ insert_container(const char *item, const char *rootParent, const char *refID, co
 }
 
 static void
-insert_containers(const char *name, const char *path, const char *refID, const char *class, int64_t detailID)
+insert_containers_for_video(const char *name, const char *refID, const char *class, int64_t detailID)
 {
 	char sql[128];
 	char **result;
+	int nrows;
+	int64_t objectID, parentID;
+
+	snprintf(sql, sizeof(sql), "SELECT ALBUM, DISC, VIDEO_TYPE from DETAILS where ID = %lld", (long long)detailID);
+	if (sql_get_table(db, sql, &result, &nrows, NULL) != SQLITE_OK) return;
+	if (nrows == 0) goto _exit;
+
+	char *series = result[3], *season = result[4];
+	int video_type = atoi(result[5]);
+	char *refID_buf = strdup(refID);
+	static struct virtual_item last_series;
+	static struct virtual_item last_season;
+	static long long last_movie_objectID = 0;
+
+	strip_char(refID_buf, '$');
+	char *album_art = sql_get_text_field(db, "SELECT ALBUM_ART from DETAILS d left join OBJECTS o on (d.ID = o.DETAIL_ID) where o.OBJECT_ID = %Q", refID_buf);
+
+	if (video_type == TVEPISODE && series)
+	{
+		if (!valid_cache || strcmp(series, last_series.name) != 0)
+		{
+			strip_char(refID_buf, '$');
+			char *series_album_art = sql_get_text_field(db, "SELECT ALBUM_ART from DETAILS d left join OBJECTS o on (d.ID = o.DETAIL_ID) where o.OBJECT_ID = %Q", refID_buf);
+			insert_container(series, VIDEO_SERIES_ID, NULL, "playlistContainer", NULL, NULL, series_album_art, &objectID, &parentID);
+			sprintf(last_series.parentID, VIDEO_SERIES_ID"$%llX", (long long)parentID);
+			strncpyt(last_series.name, series, sizeof(last_series.name));
+			sqlite3_free(series_album_art);
+		}
+	}
+	if (video_type == TVEPISODE && season)
+	{
+		if (!valid_cache || strcmp(season, last_season.name) != 0)
+		{
+			char *season_name;
+			xasprintf(&season_name, _("Season %02d"), atoi(season));
+			insert_container(season_name, last_series.parentID, NULL, "playlistContainer", NULL, NULL, album_art, &objectID, &parentID);
+			sprintf(last_season.parentID, "%s$%llX", last_series.parentID, (long long)parentID);
+			strncpyt(last_season.name, season, sizeof(last_season.name));
+			last_season.objectID = objectID;
+			free(season_name);
+		}
+		else
+		{
+			last_season.objectID++;
+		}
+
+		sql_exec(db, "INSERT into OBJECTS"
+			" (OBJECT_ID, PARENT_ID, REF_ID, CLASS, DETAIL_ID, NAME) "
+			"VALUES"
+			" ('%s$%llX', '%s', '%s', '%s', %lld, %Q)",
+			last_season.parentID, last_season.objectID, last_season.parentID, refID, class, (long long)detailID, name);
+	}
+	if (video_type == MOVIE)
+	{
+		if (!last_movie_objectID)
+		{
+			last_movie_objectID = get_next_available_id("OBJECTS", VIDEO_MOVIES_ID);
+		}
+		sql_exec(db, "INSERT into OBJECTS"
+			" (OBJECT_ID, PARENT_ID, REF_ID, CLASS, DETAIL_ID, NAME) "
+			"VALUES"
+			" ('"VIDEO_MOVIES_ID"$%llX', '"VIDEO_MOVIES_ID"', '%s', '%s', %lld, %Q)",
+			last_movie_objectID++, refID, class, (long long)detailID, name);
+	}
+
+	free(refID_buf);
+	sqlite3_free(album_art);
+_exit:
+	sqlite3_free_table(result);
+}
+
+static void
+insert_containers(const char *name, const char *path, const char *refID, const char *class, int64_t detailID)
+{
+	char sql[128];
+	char **result = NULL;
 	int ret;
 	int cols, row;
 	int64_t objectID, parentID;
@@ -363,6 +439,7 @@ insert_containers(const char *name, const char *path, const char *refID, const c
 	else if( strstr(class, "videoItem") )
 	{
 		static long long last_all_objectID = 0;
+		insert_containers_for_video(name, refID, class, detailID);
 
 		/* All Videos */
 		if( !last_all_objectID )
@@ -374,14 +451,9 @@ insert_containers(const char *name, const char *path, const char *refID, const c
 		             "VALUES"
 		             " ('"VIDEO_ALL_ID"$%llX', '"VIDEO_ALL_ID"', '%s', '%s', %lld, %Q)",
 		             last_all_objectID++, refID, class, (long long)detailID, name);
-		return;
 	}
-	else
-	{
-		return;
-	}
+
 	sqlite3_free_table(result);
-	valid_cache = 1;
 }
 
 int64_t
@@ -450,7 +522,7 @@ int
 insert_file(char *name, const char *path, const char *parentID, int object, media_types types)
 {
 	char class[32];
-	char objectID[64];
+	char objectID[256];
 	int64_t detailID = 0;
 	char base[8];
 	char *typedir_parentID;
@@ -470,7 +542,7 @@ insert_file(char *name, const char *path, const char *parentID, int object, medi
  		orig_name = strdup(name);
 		strcpy(base, VIDEO_DIR_ID);
 		strcpy(class, "item.videoItem");
-		detailID = GetVideoMetadata(path, name);
+		detailID = GetVideoMetadata(path, name, parentID);
 		if( !detailID )
 			strcpy(name, orig_name);
 	}
@@ -492,7 +564,7 @@ insert_file(char *name, const char *path, const char *parentID, int object, medi
 		return -1;
 	}
 
-	sprintf(objectID, "%s%s$%X", BROWSEDIR_ID, parentID, object);
+	snprintf(objectID, sizeof(objectID), "%s%s$%X", BROWSEDIR_ID, parentID, object);
 
 	sql_exec(db, "INSERT into OBJECTS"
 	             " (OBJECT_ID, PARENT_ID, CLASS, DETAIL_ID, NAME) "
@@ -539,6 +611,8 @@ CreateDatabase(void)
 	                        VIDEO_ID, "0", _("Video"),
 	                    VIDEO_ALL_ID, VIDEO_ID, _("All Video"),
 	                    VIDEO_DIR_ID, VIDEO_ID, _("Folders"),
+	                 VIDEO_SERIES_ID, VIDEO_ID, _("Tv Shows"),
+	                 VIDEO_MOVIES_ID, VIDEO_ID, _("Movies"),
 
 	                        IMAGE_ID, "0", _("Pictures"),
 	                    IMAGE_ALL_ID, IMAGE_ID, _("All Pictures"),
@@ -620,6 +694,17 @@ sql_failed:
 	return (ret != SQLITE_OK);
 }
 
+static int
+filter_ignored(scan_filter *d)
+{
+	struct linked_names_s *ignored_path;
+	for (ignored_path = ignore_paths; ignored_path; ignored_path = ignored_path->next)
+	{
+		if (strstr(d->d_name, ignored_path->name) != NULL) return 0;
+	}
+	return 1;
+}
+
 static inline int
 filter_hidden(scan_filter *d)
 {
@@ -642,7 +727,7 @@ filter_type(scan_filter *d)
 static int
 filter_a(scan_filter *d)
 {
-	return ( filter_hidden(d) &&
+	return (filter_hidden(d) && filter_ignored(d) &&
 	         (filter_type(d) ||
 		  (is_reg(d) &&
 		   (is_audio(d->d_name) ||
@@ -653,7 +738,7 @@ filter_a(scan_filter *d)
 static int
 filter_av(scan_filter *d)
 {
-	return ( filter_hidden(d) &&
+	return (filter_hidden(d) && filter_ignored(d) &&
 	         (filter_type(d) ||
 		  (is_reg(d) &&
 		   (is_audio(d->d_name) ||
@@ -665,7 +750,7 @@ filter_av(scan_filter *d)
 static int
 filter_ap(scan_filter *d)
 {
-	return ( filter_hidden(d) &&
+	return (filter_hidden(d) && filter_ignored(d) &&
 	         (filter_type(d) ||
 		  (is_reg(d) &&
 		   (is_audio(d->d_name) ||
@@ -677,7 +762,7 @@ filter_ap(scan_filter *d)
 static int
 filter_v(scan_filter *d)
 {
-	return ( filter_hidden(d) &&
+	return (filter_hidden(d) && filter_ignored(d) &&
 	         (filter_type(d) ||
 		  (is_reg(d) &&
 	           is_video(d->d_name)))
@@ -687,7 +772,7 @@ filter_v(scan_filter *d)
 static int
 filter_vp(scan_filter *d)
 {
-	return ( filter_hidden(d) &&
+	return (filter_hidden(d) && filter_ignored(d) &&
 	         (filter_type(d) ||
 		  (is_reg(d) &&
 		   (is_video(d->d_name) ||
@@ -698,7 +783,7 @@ filter_vp(scan_filter *d)
 static int
 filter_p(scan_filter *d)
 {
-	return ( filter_hidden(d) &&
+	return (filter_hidden(d) && filter_ignored(d) &&
 	         (filter_type(d) ||
 		  (is_reg(d) &&
 		   is_image(d->d_name)))
@@ -708,7 +793,7 @@ filter_p(scan_filter *d)
 static int
 filter_avp(scan_filter *d)
 {
-	return ( filter_hidden(d) &&
+	return (filter_hidden(d) && filter_ignored(d) &&
 	         (filter_type(d) ||
 		  (is_reg(d) &&
 		   (is_audio(d->d_name) ||
