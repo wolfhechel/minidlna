@@ -1335,65 +1335,66 @@ static void
 SendResp_icon(struct upnphttp * h, char * icon)
 {
 	char header[512];
-	char mime[12] = "image/";
-	char *data;
-	int size;
 	struct string_s str;
-	img_t * icon_img = NULL;
+	char path[1024];
+	char * icon_extension;
+	char * icon_mimetype;
+	int fd;
+	off_t size;
 
-	if( strcmp(icon, "sm.png") == 0 )
-	{
-		DPRINTF(E_DEBUG, L_HTTP, "Sending small PNG icon\n");
-		icon_img = &png_sm;
-	}
-	else if( strcmp(icon, "lrg.png") == 0 )
-	{
-		DPRINTF(E_DEBUG, L_HTTP, "Sending large PNG icon\n");
-		icon_img = &png_lrg;
-	}
-	else if( strcmp(icon, "sm.jpg") == 0 )
-	{
-		DPRINTF(E_DEBUG, L_HTTP, "Sending small JPEG icon\n");
-		icon_img = &jpeg_sm;
-	}
-	else if( strcmp(icon, "lrg.jpg") == 0 )
-	{
-		DPRINTF(E_DEBUG, L_HTTP, "Sending large JPEG icon\n");
-		icon_img = &jpeg_lrg;
-	}
+	static char * png_mimetype = "image/png";
+	static char * jpeg_mimetype = "image/jpeg";
+	static char * octet_mimetype = "application/octet";
 
-	if ((icon_img != NULL) && icon_img->loaded == 1)
-	{
-		data = (char *)icon_img->data;
-		size = icon_img->size;
+	sprintf(path, "%s/icons/%s", DATA_PATH, icon);
 
-		if (strcmp(icon, ".jpg") == 0)
+	fd = open(path, O_RDONLY);
+
+	if ( fd > 0 )
+	{
+		icon_extension = strrchr(icon, '.');
+
+		DPRINTF(E_INFO, L_HTTP, "File extension is %s", icon_extension);
+
+		if (!icon_extension)
 		{
-			strcpy((mime+6), "jpeg");
+			icon_mimetype = octet_mimetype;
 		}
-		else if (strcmp(icon, ".png") == 0)
+		else if (strcmp(icon_extension, ".png") == 0)
 		{
-			strcpy((mime+6), "png");
+			icon_mimetype = png_mimetype;
 		}
+		else if (strcmp(icon_extension, ".jpeg") == 0)
+		{
+			icon_mimetype = jpeg_mimetype;
+		}
+		else
+		{
+			icon_mimetype = octet_mimetype;
+		}
+
+		size = lseek(fd, 0, SEEK_END);
+		lseek(fd, 0, SEEK_SET);
+
+		INIT_STR(str, header);
+
+		start_dlna_header(&str, 200, "Interactive", icon_mimetype);
+		strcatf(&str, "Content-Length: %lld\r\n\r\n", size);
+
+		if( send_data(h, str.data, str.off, MSG_MORE) == 0 )
+		{
+			if( h->req_command != EHead )
+				send_file(h, fd, 0, size - 1);
+		}
+
+		close(fd);
+		CloseSocket_upnphttp(h);
 	}
 	else
 	{
 		DPRINTF(E_WARN, L_HTTP, "Invalid icon request: %s\n", icon);
 		Send404(h);
-		return;
 	}
-
-	INIT_STR(str, header);
-
-	start_dlna_header(&str, 200, "Interactive", mime);
-	strcatf(&str, "Content-Length: %d\r\n\r\n", size);
-
-	if( send_data(h, str.data, str.off, MSG_MORE) == 0 )
-	{
-		if( h->req_command != EHead )
-			send_data(h, data, size, 0);
-	}
-	CloseSocket_upnphttp(h);
 }
 
 static void

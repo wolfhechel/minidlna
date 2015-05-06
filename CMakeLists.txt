@@ -53,7 +53,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
 
 include (GNUInstallDirs)
 
-set (PROJECT_DATADIR "${CMAKE_INSTALL_DATADIR}/${PACKAGE_NAME}"
+set (PROJECT_DATADIR "${CMAKE_INSTALL_FULL_DATADIR}/${PACKAGE_NAME}"
      CACHE PATH "Projects data directory [DATADIR]/${PACKAGE_NAME}]")
 
 include_directories (${CMAKE_SOURCE_DIR})
