@@ -64,7 +64,7 @@ const char *pidfilename = DEFAULT_RUN_PATH "/minidlna/minidlna.pid";
 
 char uuidvalue[] = "uuid:00000000-0000-0000-0000-000000000000";
 char modelname[MODELNAME_MAX_LEN] = ROOTDEV_MODELNAME;
-char modelnumber[MODELNUMBER_MAX_LEN] = MINIDLNA_VERSION;
+char modelnumber[MODELNUMBER_MAX_LEN] = PACKAGE_VERSION;
 char serialnumber[SERIALNUMBER_MAX_LEN] = "00000000";
 #if PNPX
 char pnpx_hwid[] = "VEN_0000&amp;DEV_0000&amp;REV_01 VEN_0033&amp;DEV_0001&amp;REV_01";

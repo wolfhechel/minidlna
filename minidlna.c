@@ -914,7 +914,7 @@ init(int argc, char **argv)
 			break;
 #endif
 		case 'V':
-			printf("Version " MINIDLNA_VERSION "\n");
+			printf("Version " PACKAGE_VERSION "\n");
 			exit(0);
 			break;
 		default:
@@ -1085,7 +1085,7 @@ main(int argc, char **argv)
 	if (ret != 0)
 		return 1;
 
-	DPRINTF(E_WARN, L_GENERAL, "Starting " SERVER_NAME " version " MINIDLNA_VERSION ".\n");
+	DPRINTF(E_WARN, L_GENERAL, "Starting " SERVER_NAME " version " PACKAGE_VERSION ".\n");
 	if (sqlite3_libversion_number() < 3005001)
 	{
 		DPRINTF(E_WARN, L_GENERAL, "SQLite library is old.  Please use version 3.5.1 or newer.\n");

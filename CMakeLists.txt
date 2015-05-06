@@ -6,7 +6,7 @@ string (TOLOWER ${CMAKE_PROJECT_NAME} PACKAGE_NAME)
 
 set (MiniDLNA_VERSION_MAJOR 1)
 set (MiniDLNA_VERSION_MINOR 1)
-set (MiniDLNA_VERSION_PATCH 3)
+set (MiniDLNA_VERSION_PATCH 4)
 set (MiniDLNA_VERSION "${MiniDLNA_VERSION_MAJOR}.${MiniDLNA_VERSION_MINOR}.${MiniDLNA_VERSION_PATCH}")
 set (MiniDLNA_PACKAGE_NAME ${PACKAGE_NAME})
 
@@ -56,8 +56,8 @@ include (GNUInstallDirs)
 set (PROJECT_DATADIR "${CMAKE_INSTALL_DATADIR}/${PACKAGE_NAME}"
      CACHE PATH "Projects data directory [DATADIR]/${PACKAGE_NAME}]")
 
-include_directories (${PROJECT_SOURCE_DIR})
-include_directories (${PROJECT_BINARY_DIR})
+include_directories (${CMAKE_SOURCE_DIR})
+include_directories (${CMAKE_BINARY_DIR})
 
 include (cmake/Includes/DefineOptions.cmake)
 
@@ -153,8 +153,8 @@ get_property (CMAKE_REQUIRED_INCLUDES
 include (cmake/Includes/ConfigureChecks.cmake)
 
 configure_file (
-    "${PROJECT_SOURCE_DIR}/config.h.cmake.in"
-    "${PROJECT_BINARY_DIR}/config.h"
+    "${CMAKE_SOURCE_DIR}/config.h.in"
+    "${CMAKE_BINARY_DIR}/config.h"
 )
 
 add_executable(minidlnad ${SOURCES} ${HEADERS})
