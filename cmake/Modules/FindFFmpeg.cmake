@@ -47,11 +47,8 @@ else (FFmpeg_LIBRARIES AND FFmpeg_INCLUDE_DIRS)
         find_ffmpeg_component(FFmpeg_${component} ${component})
 
         if (FFmpeg_${component}_LIBRARIES AND FFmpeg_${component}_INCLUDE_DIRS)
-            set (FFmpeg_LIBRARIES ${FFmpeg_LIBRARIES}
-                                  ${FFmpeg_${component}_LIBRARIES})
-
-            set (FFmpeg_INCLUDE_DIRS ${FFmpeg_INCLUDE_DIRS}
-                                     ${FFmpeg_${component}_INCLUDE_DIR})
+            list (APPEND FFmpeg_LIBRARIES "${FFmpeg_${component}_LIBRARIES}")
+            list (APPEND FFmpeg_INCLUDE_DIRS "${FFmpeg_${component}_INCLUDE_DIRS}")
         else (FFmpeg_${component}_LIBRARIES AND FFmpeg_${component}_INCLUDE_DIRS)
             set (FFmpeg_MISSING_LIBRARIES "${FFmpeg_MISSING_LIBRARIES} lib${component}")
         endif (FFmpeg_${component}_LIBRARIES AND FFmpeg_${component}_INCLUDE_DIRS)

@@ -10,11 +10,14 @@
 # Redistribution and use is allowed according to the terms of the BSD license.
 # For details see the accompanying COPYING-CMAKE-SCRIPTS file.
 
-if(SQLite3_INCLUDE_DIRS AND SQLite3_LIBRARIES)
-   set(SQLite3_FOUND TRUE)
+find_package(PkgConfig)
+pkg_check_modules(SQLite3 sqlite3)
 
-else(SQLite3_INCLUDE_DIRS AND SQLite3_LIBRARIES)
+if (NOT SQLite3_INCLUDE_DIRS)
+  set (SQLite3_INCLUDE_DIRS ${SQLite3_INCLUDEDIR})
+endif (NOT SQLite3_INCLUDE_DIRS)
 
+if (NOT SQLite3_FOUND)
   find_path(SQLite3_INCLUDE_DIRS SQLite3.h
       /usr/include
       /usr/local/include
@@ -42,14 +45,11 @@ else(SQLite3_INCLUDE_DIRS AND SQLite3_LIBRARIES)
       $ENV{SystemDrive}/SQLite3
       )
 
-  if(SQLite3_INCLUDE_DIRS AND SQLite3_LIBRARIES)
-    set(SQLite3_FOUND TRUE)
-    message(STATUS "Found SQLite3: ${SQLite3_INCLUDE_DIRS}, ${SQLite3_LIBRARIES}")
-  else(SQLite3_INCLUDE_DIRS AND SQLite3_LIBRARIES)
-    set(SQLite3_FOUND FALSE)
-    message(STATUS "SQLite3 not found.")
-  endif(SQLite3_INCLUDE_DIRS AND SQLite3_LIBRARIES)
+endif(NOT SQLite3_FOUND)
 
-  mark_as_advanced(SQLite3_INCLUDE_DIRS SQLite3_LIBRARIES)
+include(FindPackageHandleStandardArgs)
 
-endif(SQLite3_INCLUDE_DIRS AND SQLite3_LIBRARIES)
+find_package_handle_standard_args(SQLite3 DEFAULT_MSG
+                                  SQLite3_LIBRARIES SQLite3_INCLUDE_DIRS)
+
+mark_as_advanced(SQLite3_INCLUDE_DIRS SQLite3_LIBRARIES)
