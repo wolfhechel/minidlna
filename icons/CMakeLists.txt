@@ -1,3 +1,3 @@
 # Install shared data
-install (DIRECTORY icons
+install (DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
          DESTINATION ${PROJECT_DATADIR})
