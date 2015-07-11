@@ -12,10 +12,7 @@ depends=('libexif' 'libjpeg' 'libid3tag' 'flac' 'libvorbis' 'ffmpeg' 'sqlite')
 makedepends=('cmake' 'git')
 backup=('etc/minidlna.conf')
 install=minidlna.install
-source=("$pkgname::git+https://github.com/wolfhechel/minidlna#branch=develop"
-	minidlna.service
-	minidlna.tmpfiles
-	minidlna.sysusers)
+source=("$pkgname::git+https://github.com/wolfhechel/minidlna#branch=develop")
 md5sums=('SKIP'
          '1f53adef7dfa12c1d4636737366b1d39'
          'a61f97b037ea17555f6632b3ffd761ef'
