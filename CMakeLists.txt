@@ -37,7 +37,6 @@ set (DEFAULT_RUN_PATH "${CMAKE_INSTALL_FULL_LOCALSTATEDIR}/run" CACHE PATH "Defa
 set (DEFAULT_DB_PATH "${CMAKE_INSTALL_FULL_LOCALSTATEDIR}/db/minidlna" CACHE PATH "Default DB path")
 set (DATA_PATH ${PROJECT_DATADIR})
 
-option (TIVO_SUPPORT "enable TiVo support" OFF)
 option (NETGEAR "enable generic NETGEAR device support" OFF)
 option (READYNAS "enable NETGEAR ReadyNAS support" OFF)
 option (ENABLE_VIDEO_THUMB "enable video thumbnail generation using libavcodec and libswscale" OFF)

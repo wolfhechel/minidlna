@@ -48,7 +48,6 @@
 #include "upnpreplyparse.h"
 #include "getifaddr.h"
 #include "minissdp.h"
-#include "codelength.h"
 #include "utils.h"
 #include "log.h"
 
@@ -753,69 +752,3 @@ SendSSDPGoodbyes(int s)
 	}
 	return ret;
 }
-
-/* SubmitServicesToMiniSSDPD() :
- * register services offered by MiniUPnPd to a running instance of
- * MiniSSDPd */
-int
-SubmitServicesToMiniSSDPD(const char *host, unsigned short port)
-{
-	struct sockaddr_un addr;
-	int s;
-	unsigned char buffer[2048];
-	char strbuf[256];
-	unsigned char *p;
-	int i, l;
-
-	s = socket(AF_UNIX, SOCK_STREAM, 0);
-	if (s < 0)
-	{
-		DPRINTF(E_ERROR, L_SSDP, "socket(unix): %s", strerror(errno));
-		return -1;
-	}
-	addr.sun_family = AF_UNIX;
-	strncpyt(addr.sun_path, minissdpdsocketpath, sizeof(addr.sun_path));
-	if (connect(s, (struct sockaddr *)&addr, sizeof(struct sockaddr_un)) < 0)
-	{
-		DPRINTF(E_ERROR, L_SSDP, "connect(\"%s\"): %s",
-			minissdpdsocketpath, strerror(errno));
-		close(s);
-		return -1;
-	}
-	for (i = 0; known_service_types[i]; i++)
-	{
-		buffer[0] = 4;
-		p = buffer + 1;
-		l = strlen(known_service_types[i]);
-		if (i > 0)
-			l++;
-		CODELENGTH(l, p);
-		memcpy(p, known_service_types[i], l);
-		if (i > 0)
-			p[l-1] = '1';
-		p += l;
-		l = snprintf(strbuf, sizeof(strbuf), "%s::%s%s", 
-		             uuidvalue, known_service_types[i], (i==0)?"":"1");
-		CODELENGTH(l, p);
-		memcpy(p, strbuf, l);
-		p += l;
-		l = strlen(MINIDLNA_SERVER_STRING);
-		CODELENGTH(l, p);
-		memcpy(p, MINIDLNA_SERVER_STRING, l);
-		p += l;
-		l = snprintf(strbuf, sizeof(strbuf), "http://%s:%u" ROOTDESC_PATH,
-		             host, (unsigned int)port);
-		CODELENGTH(l, p);
-		memcpy(p, strbuf, l);
-		p += l;
-		if(write(s, buffer, p - buffer) < 0)
-		{
-			DPRINTF(E_ERROR, L_SSDP, "write(): %s", strerror(errno));
-			close(s);
-			return -1;
-		}
-	}
-	close(s);
-	return 0;
-}
-

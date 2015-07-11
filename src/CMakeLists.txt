@@ -17,9 +17,6 @@ set (SOURCES minidlna.c
              metadata.c
              scanner.c
              inotify.c
-             tivo_utils.c
-             tivo_beacon.c
-             tivo_commands.c
              playlist.c
              image_utils.c
              albumart.c
@@ -29,8 +26,7 @@ set (SOURCES minidlna.c
              tagutils/tagutils.c
              naturalsort.c)
 
-set (HEADERS codelength.h
-             config.h
+set (HEADERS config.h
              libav.h
              scanner_sqlite.h
              sendfile.h
