@@ -61,12 +61,12 @@
 #include <arpa/inet.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <uuid/uuid.h>
 
 #include "upnpevents.h"
 #include "minidlnapath.h"
 #include "upnpglobalvars.h"
 #include "upnpdescgen.h"
-#include "uuid.h"
 #include "utils.h"
 #include "log.h"
 
@@ -115,9 +115,13 @@ static struct subscriber *
 newSubscriber(const char * eventurl, const char * callback, int callbacklen)
 {
 	struct subscriber * tmp;
+	uuid_t uuid = { '\0' };
+
 	if(!eventurl || !callback || !callbacklen)
 		return NULL;
+
 	tmp = calloc(1, sizeof(struct subscriber)+callbacklen+1);
+
 	if(strcmp(eventurl, CONTENTDIRECTORY_EVENTURL)==0)
 		tmp->service = EContentDirectory;
 	else if(strcmp(eventurl, CONNECTIONMGR_EVENTURL)==0)
@@ -128,15 +132,15 @@ newSubscriber(const char * eventurl, const char * callback, int callbacklen)
 		free(tmp);
 		return NULL;
 	}
+
 	memcpy(tmp->callback, callback, callbacklen);
 	tmp->callback[callbacklen] = '\0';
 	/* make a dummy uuid */
-	strncpyt(tmp->uuid, uuidvalue, sizeof(tmp->uuid));
-	if( get_uuid_string(tmp->uuid+5) != 0 )
-	{
-		tmp->uuid[sizeof(tmp->uuid)-1] = '\0';
-		snprintf(tmp->uuid+37, 5, "%04lx", random() & 0xffff);
-	}
+
+	memset(tmp->uuid, '\0', sizeof(tmp->uuid));
+
+	uuid_generate(uuid);
+	uuid_unparse_lower(uuid, (char *)tmp->uuid);
 
 	return tmp;
 }

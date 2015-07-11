@@ -10,7 +10,6 @@ set (SOURCES minidlna.c
              upnpglobalvars.c
              options.c
              minissdp.c
-             uuid.c
              upnpevents.c
              sql.c
              utils.c
