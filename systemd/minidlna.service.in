@@ -4,9 +4,9 @@ After=network.target
 
 [Service]
 Type=simple
-User=minidlna
-Group=minidlna
-ExecStart=/usr/bin/minidlnad -S
+User=@DEFAULT_USER@
+Group=@DEFAULT_GROUP@
+ExecStart=@CMAKE_INSTALL_FULL_BINDIR@/minidlnad -S
 ProtectSystem=full
 ProtectHome=on
 PrivateDevices=on

@@ -1,0 +1,5 @@
+# systemd tmpfile settings for minidlna
+# See tmpfiles.d(5) for details
+
+d @DEFAULT_LOG_PATH@ 0755 @DEFAULT_USER@ @DEFAULT_GROUP@ -
+d @DEFAULT_DB_PATH@ 0755 @DEFAULT_USER@ @DEFAULT_GROUP@ -

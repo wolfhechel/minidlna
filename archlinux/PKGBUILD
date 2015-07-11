@@ -23,25 +23,18 @@ md5sums=('SKIP'
 conflicts=('minidlna')
 
 prepare() {
-  cd "$srcdir/$pkgname"
-  sed -i 's|#user=.*|user=minidlna|g' minidlna.conf
-}
-
-build() {
   mkdir "$srcdir/build"
   cd "$srcdir/build"
   cmake -DCMAKE_INSTALL_PREFIX:PATH=/usr \
         -DCMAKE_INSTALL_SYSCONFDIR:PATH=/etc "$srcdir/$pkgname"
+}
+
+build() {
+  cd "$srcdir/build"
   make
 }
 
 package() {
   cd "$srcdir/build"
   DESTDIR=$pkgdir make install
-  install -Dm644 minidlna.conf ${pkgdir}/etc/minidlna.conf
-  install -Dm0644 $srcdir/minidlna.tmpfiles $pkgdir/usr/lib/tmpfiles.d/minidlna.conf
-  install -Dm0644 $srcdir/minidlna.sysusers $pkgdir/usr/lib/sysusers.d/minidlna.conf
-  install -Dm0644 $srcdir/minidlna.service $pkgdir/usr/lib/systemd/system/minidlna.service
-  install -Dm644 $srcdir/$pkgname-$pkgver/minidlna.conf.5 $pkgdir/usr/share/man/man5/minidlna.conf.5
-  install -Dm644 $srcdir/$pkgname-$pkgver/minidlnad.8 $pkgdir/usr/share/man/man8/minidlnad.8
 }

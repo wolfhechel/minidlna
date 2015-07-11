@@ -34,12 +34,25 @@ set (ROOTDEV_MODELURL "${OS_URL}")
 
 set (DEFAULT_LOG_PATH "${CMAKE_INSTALL_FULL_LOCALSTATEDIR}/log" CACHE PATH "Default log path")
 set (DEFAULT_RUN_PATH "${CMAKE_INSTALL_FULL_LOCALSTATEDIR}/run" CACHE PATH "Default run path")
-set (DEFAULT_DB_PATH "${CMAKE_INSTALL_FULL_LOCALSTATEDIR}/db/minidlna" CACHE PATH "Default DB path")
+set (DEFAULT_DB_PATH "${CMAKE_INSTALL_FULL_LOCALSTATEDIR}/cache/minidlna" CACHE PATH "Default DB path")
+set (DEFAULT_CONF_PATH "${CMAKE_INSTALL_FULL_SYSCONFDIR}/minidlna.conf" CACHE PATH "Default configuration path")
+
 set (DATA_PATH ${PROJECT_DATADIR})
+
+set (DEFAULT_USER "minidlna" CACHE STRING "Default user to run as")
+set (DEFAULT_GROUP "minidlna" CACHE STRING "Default group to run as")
+
+set (SYSTEMD_LIB_DIR "${CMAKE_INSTALL_FULL_LIBDIR}" CACHE PATH "systemd library path")
 
 option (NETGEAR "enable generic NETGEAR device support" OFF)
 option (READYNAS "enable NETGEAR ReadyNAS support" OFF)
 option (ENABLE_VIDEO_THUMB "enable video thumbnail generation using libavcodec and libswscale" OFF)
+
+option (ENABLE_SYSTEMD "enable systemd support" ON)
+
+if (LINUX)
+    set (ENABLE_SYSTEMD ON)
+endif ()
 
 if (READYNAS)
     set (NETGEAR ON)
@@ -60,6 +73,12 @@ add_subdirectory (src)
 add_subdirectory (man)
 add_subdirectory (icons)
 
+if (ENABLE_SYSTEMD)
+    add_subdirectory (systemd)
+endif ()
+
+configure_file(minidlna.conf.in minidlna.conf)
+
 # Install configuration
-install (FILES minidlna.conf
+install (FILES ${CMAKE_BINARY_DIR}/minidlna.conf
          DESTINATION ${CMAKE_INSTALL_SYSCONFDIR})

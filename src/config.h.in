@@ -13,6 +13,9 @@
 /* Shared data path */
 #cmakedefine DATA_PATH "@DATA_PATH@"
 
+/* Configuration path */
+#cmakedefine DEFAULT_CONF_PATH "@DEFAULT_CONF_PATH@"
+
 /* Define to 1 if translation of program messages to the user's native
    language is requested. */
 #cmakedefine ENABLE_NLS 1
