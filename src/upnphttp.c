@@ -78,7 +78,60 @@
 #include <libexif/exif-loader.h>
 #include "clients.h"
 #include "process.h"
-#include "sendfile.h"
+
+#if defined(HAVE_LINUX_SENDFILE_API)
+
+#include <sys/sendfile.h>
+
+int sys_sendfile(int sock, int sendfd, off_t *offset, off_t len)
+{
+	return sendfile(sock, sendfd, offset, len);
+}
+
+#elif defined(HAVE_DARWIN_SENDFILE_API)
+
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/uio.h>
+
+int sys_sendfile(int sock, int sendfd, off_t *offset, off_t len)
+{
+	int ret;
+
+	ret = sendfile(sendfd, sock, *offset, &len, NULL, 0);
+	*offset += len;
+
+	return ret;
+}
+
+#elif defined(HAVE_FREEBSD_SENDFILE_API)
+
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/uio.h>
+
+int sys_sendfile(int sock, int sendfd, off_t *offset, off_t len)
+{
+	int ret;
+	size_t nbytes = len;
+
+	ret = sendfile(sendfd, sock, *offset, nbytes, NULL, &len, SF_MNOWAIT);
+	*offset += len;
+
+	return ret;
+}
+
+#else
+
+#include <errno.h>
+
+int sys_sendfile(int sock, int sendfd, off_t *offset, off_t len)
+{
+	errno = EINVAL;
+	return -1;
+}
+
+#endif
 
 #define MAX_BUFFER_SIZE 2147483647
 #define MIN_BUFFER_SIZE 65536
@@ -1454,14 +1507,14 @@ SendResp_mta(struct upnphttp * h, char * object)
 		Send404(h);
 		return;
 	}
-#if USE_FORK
+
 	pid_t newpid = 0;
 	newpid = process_fork(h->req_client);
 	if( newpid > 0 )
 	{
 		goto mta_error;
 	}
-#endif
+
 	DPRINTF(E_INFO, L_HTTP, "Serving MTA file ID: %lld [%s]\n", id, path);
 
 	fd = open(path, O_RDONLY);
@@ -1478,11 +1531,9 @@ SendResp_mta(struct upnphttp * h, char * object)
 
 	INIT_STR(str, header);
 
-#if USE_FORK
 	if( (h->reqflags & FLAG_XFERBACKGROUND) && (setpriority(PRIO_PROCESS, 0, 19) == 0) )
 		tmode = "Background";
 	else
-#endif
 		tmode = "Interactive";
 
 	start_dlna_header(&str, 200, tmode, "image/jpeg");
@@ -1497,10 +1548,9 @@ SendResp_mta(struct upnphttp * h, char * object)
 	close(fd);
 mta_error:
 	CloseSocket_upnphttp(h);
-#if USE_FORK
+
 	if( newpid == 0 )
 		_exit(0);
-#endif
 
 }
 
@@ -1692,7 +1742,6 @@ SendResp_resizedimg(struct upnphttp * h, char * object)
 		} */
 	}
 
-#if USE_FORK
 	pid_t newpid = 0;
 	newpid = process_fork(h->req_client);
 	if( newpid > 0 )
@@ -1700,7 +1749,7 @@ SendResp_resizedimg(struct upnphttp * h, char * object)
 		CloseSocket_upnphttp(h);
 		goto resized_error;
 	}
-#endif
+
 	if( h->reqflags & (FLAG_XFERSTREAMING|FLAG_RANGE) )
 	{
 		DPRINTF(E_WARN, L_HTTP, "Client tried to specify transferMode as Streaming with an image!\n");
@@ -1762,11 +1811,9 @@ SendResp_resizedimg(struct upnphttp * h, char * object)
 
 	INIT_STR(str, header);
 
-#if USE_FORK
 	if( (h->reqflags & FLAG_XFERBACKGROUND) && (setpriority(PRIO_PROCESS, 0, 19) == 0) )
 		tmode = "Background";
 	else
-#endif
 		tmode = "Interactive";
 	start_dlna_header(&str, 200, tmode, "image/jpeg");
 	strcatf(&str, "contentFeatures.dlna.org: %sDLNA.ORG_CI=1;DLNA.ORG_FLAGS=%08X%024X\r\n",
@@ -1830,10 +1877,9 @@ SendResp_resizedimg(struct upnphttp * h, char * object)
 	CloseSocket_upnphttp(h);
 resized_error:
 	sqlite3_free_table(result);
-#if USE_FORK
+
 	if( newpid == 0 )
 		_exit(0);
-#endif
 }
 
 static void
@@ -1857,9 +1903,7 @@ SendResp_dlnafile(struct upnphttp *h, char *object)
 	                char mime[32];
 	                char dlna[96];
 	              } last_file = { 0, 0 };
-#if USE_FORK
 	pid_t newpid = 0;
-#endif
 
 	id = strtoll(object, NULL, 10);
 	if( cflags & FLAG_MS_PFS )
@@ -1927,14 +1971,13 @@ SendResp_dlnafile(struct upnphttp *h, char *object)
 			last_file.dlna[0] = '\0';
 		sqlite3_free_table(result);
 	}
-#if USE_FORK
+
 	newpid = process_fork(h->req_client);
 	if( newpid > 0 )
 	{
 		CloseSocket_upnphttp(h);
 		return;
 	}
-#endif
 
 	DPRINTF(E_INFO, L_HTTP, "Serving DetailID: %lld [%s]\n", (long long)id, last_file.path);
 
@@ -1980,12 +2023,9 @@ SendResp_dlnafile(struct upnphttp *h, char *object)
 
 	INIT_STR(str, header);
 
-#if USE_FORK
 	if( (h->reqflags & FLAG_XFERBACKGROUND) && (setpriority(PRIO_PROCESS, 0, 19) == 0) )
 		tmode = "Background";
-	else
-#endif
-	if( strncmp(last_file.mime, "image", 5) == 0 )
+	else if( strncmp(last_file.mime, "image", 5) == 0 )
 		tmode = "Interactive";
 	else
 		tmode = "Streaming";
@@ -2059,9 +2099,9 @@ SendResp_dlnafile(struct upnphttp *h, char *object)
 
 	CloseSocket_upnphttp(h);
 error:
-#if USE_FORK
+
 	if( newpid == 0 )
 		_exit(0);
-#endif
+
 	return;
 }

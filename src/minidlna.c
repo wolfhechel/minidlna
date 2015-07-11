@@ -369,7 +369,7 @@ rescan:
 		open_db(&db);
 		if (CreateDatabase() != 0)
 			DPRINTF(E_FATAL, L_GENERAL, "ERROR: Failed to create sqlite database!  Exiting...\n");
-#if USE_FORK
+
 		scanning = 1;
 		sqlite3_close(db);
 		*scanner_pid = fork();
@@ -386,9 +386,6 @@ rescan:
 		{
 			start_scanner();
 		}
-#else
-		start_scanner();
-#endif
 	}
 }
 

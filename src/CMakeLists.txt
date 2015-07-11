@@ -28,7 +28,6 @@ set (SOURCES minidlna.c
 set (HEADERS config.h
              libav.h
              scanner_sqlite.h
-             sendfile.h
              minidlnapath.h
              minidlnatypes.h)
 
