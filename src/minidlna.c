@@ -93,10 +93,6 @@ char modelnumber[MODELNUMBER_MAX_LEN] = PACKAGE_VERSION;
 char serialnumber[SERIALNUMBER_MAX_LEN] = "00000000";
 char friendly_name[FRIENDLYNAME_MAX_LEN];
 
-/* presentation url :
- * http://nnn.nnn.nnn.nnn:ppppp/  => max 30 bytes including terminating 0 */
-char presentationurl[PRESENTATIONURL_MAX_LEN];
-
 int n_lan_addr = 0;
 struct lan_addr_s lan_addr[MAX_LAN_ADDR];
 
@@ -206,7 +202,6 @@ init(int argc, char **argv)
 	int verbose_flag = 0;
 	int options_flag = 0;
 	struct sigaction sa;
-	const char * presurl = NULL;
 	const char * optionsfile = DEFAULT_CONF_PATH;
 	char mac_str[13];
 	char *string, *word;
@@ -277,9 +272,6 @@ init(int argc, char **argv)
 			break;
 		case UPNPPORT:
 			runtime_vars.port = atoi(ary_options[i].value);
-			break;
-		case UPNPPRESENTATIONURL:
-			presurl = ary_options[i].value;
 			break;
 		case UPNPNOTIFY_INTERVAL:
 			runtime_vars.notify_interval = atoi(ary_options[i].value);
@@ -508,12 +500,6 @@ init(int argc, char **argv)
 		case 'L':
 			SETFLAG(NO_PLAYLIST_MASK);
 			break;
-		case 'w':
-			if (i+1 < argc)
-				presurl = argv[++i];
-			else
-				DPRINTF(E_FATAL, L_GENERAL, "Option -%c takes one argument.\n", argv[i][1]);
-			break;
 		case 'i':
 			if (i+1 < argc)
 			{
@@ -583,12 +569,11 @@ init(int argc, char **argv)
 #ifdef __linux__
 			"\t\t[-w url] [-R] [-L] [-S] [-V] [-h]\n"
 #else
-			"\t\t[-w url] [-R] [-L] [-V] [-h]\n"
+			"\t\t[-R] [-L] [-V] [-h]\n"
 #endif
 			"\nNotes:\n\tNotify interval is in seconds. Default is 895 seconds.\n"
 			"\tDefault pid file is %s.\n"
 			"\tWith -d minidlna will run in debug mode (not daemonize).\n"
-			"\t-w sets the presentation url. Default is http address on port 80\n"
 			"\t-v enables verbose output\n"
 			"\t-h displays this text\n"
 			"\t-R forces a full rescan\n"
@@ -638,12 +623,6 @@ init(int argc, char **argv)
 		DPRINTF(E_ERROR, L_GENERAL, SERVER_NAME " is already running. EXITING.\n");
 		return 1;
 	}
-
-	/* presentation url */
-	if (presurl)
-		strncpyt(presentationurl, presurl, PRESENTATIONURL_MAX_LEN);
-	else
-		strcpy(presentationurl, "/");
 
 	/* set signal handlers */
 	memset(&sa, 0, sizeof(struct sigaction));

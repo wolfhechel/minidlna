@@ -44,7 +44,6 @@ static const struct {
 } optionids[] = {
 	{ UPNPIFNAME, "network_interface" },
 	{ UPNPPORT, "port" },
-	{ UPNPPRESENTATIONURL, "presentation_url" },
 	{ UPNPNOTIFY_INTERVAL, "notify_interval" },
 	{ UPNPUUID, "uuid"},
 	{ UPNPSERIAL, "serial"},

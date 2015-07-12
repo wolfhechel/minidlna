@@ -704,77 +704,6 @@ sendXMLdesc(struct upnphttp * h, char * (f)(int *))
 	free(desc);
 }
 
-#ifdef READYNAS
-static void
-SendResp_readynas_admin(struct upnphttp * h)
-{
-	char body[128];
-	int l;
-
-	h->respflags = FLAG_HTML;
-	l = snprintf(body, sizeof(body), "<meta http-equiv=\"refresh\" content=\"0; url=https://%s/admin/\">",
-	              lan_addr[h->iface].str);
-
-	BuildResp_upnphttp(h, body, l);
-	SendResp_upnphttp(h);
-	CloseSocket_upnphttp(h);
-}
-#endif
-
-static void
-SendResp_presentation(struct upnphttp * h)
-{
-	struct string_s str;
-	char body[4096];
-	int a, v, p, i;
-
-	INIT_STR(str, body);
-
-	h->respflags = FLAG_HTML;
-
-	a = sql_get_int_field(db, "SELECT count(*) from DETAILS where MIME glob 'a*'");
-	v = sql_get_int_field(db, "SELECT count(*) from DETAILS where MIME glob 'v*'");
-	p = sql_get_int_field(db, "SELECT count(*) from DETAILS where MIME glob 'i*'");
-	strcatf(&str,
-		"<HTML><HEAD><TITLE>" SERVER_NAME " " PACKAGE_VERSION "</TITLE></HEAD>"
-		"<BODY><div style=\"text-align: center\">"
-		"<h2>" SERVER_NAME " status</h2></div>");
-
-	strcatf(&str,
-		"<h3>Media library</h3>"
-		"<table border=1 cellpadding=10>"
-		"<tr><td>Audio files</td><td>%d</td></tr>"
-		"<tr><td>Video files</td><td>%d</td></tr>"
-		"<tr><td>Image files</td><td>%d</td></tr>"
-		"</table>", a, v, p);
-
-	if (scanning)
-		strcatf(&str,
-			"<br><i>* Media scan in progress</i><br>");
-
-	strcatf(&str,
-		"<h3>Connected clients</h3>"
-		"<table border=1 cellpadding=10>"
-		"<tr><td>ID</td><td>Type</td><td>IP Address</td><td>HW Address</td><td>Connections</td></tr>");
-	for (i = 0; i < CLIENT_CACHE_SLOTS; i++)
-	{
-		if (!clients[i].addr.s_addr)
-			continue;
-		strcatf(&str, "<tr><td>%d</td><td>%s</td><td>%s</td><td>%02X:%02X:%02X:%02X:%02X:%02X</td><td>%d</td></tr>",
-				i, clients[i].type->name, inet_ntoa(clients[i].addr),
-				clients[i].mac[0], clients[i].mac[1], clients[i].mac[2],
-				clients[i].mac[3], clients[i].mac[4], clients[i].mac[5], clients[i].connections);
-	}
-	strcatf(&str, "</table>");
-
-	strcatf(&str, "<br>%d connection%s currently open<br>", number_of_children, (number_of_children == 1 ? "" : "s"));
-	strcatf(&str, "</BODY></HTML>\r\n");
-
-	BuildResp_upnphttp(h, str.data, str.off);
-	SendResp_upnphttp(h);
-	CloseSocket_upnphttp(h);
-}
-
 /* ProcessHTTPPOST_upnphttp()
  * executes the SOAP query if it is possible */
 static void
@@ -1110,18 +1039,6 @@ ProcessHttpQuery_upnphttp(struct upnphttp * h)
 		else if(strncmp(HttpUrl, "/Captions/", 10) == 0)
 		{
 			SendResp_caption(h, HttpUrl+10);
-		}
-		else if(strncmp(HttpUrl, "/status", 7) == 0)
-		{
-			SendResp_presentation(h);
-		}
-		else if(strcmp(HttpUrl, "/") == 0)
-		{
-			#ifdef READYNAS
-			SendResp_readynas_admin(h);
-			#else
-			SendResp_presentation(h);
-			#endif
 		}
 		else
 		{
