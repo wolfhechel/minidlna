@@ -1,11 +1,10 @@
 set (SOURCES upnp/upnphttp.c
              upnp/upnpdescgen.c
              upnp/upnpsoap.c
-             upnp/upnpreplyparse.c
              upnp/minissdp.c
              upnp/upnpevents.c
              minidlna.c
-             minixml.c
+             xml.c
              clients.c
              getifaddr.c
              process.c

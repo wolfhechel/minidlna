@@ -66,7 +66,7 @@
 #include "upnphttp.h"
 #include "upnpsoap.h"
 #include "containers.h"
-#include "upnpreplyparse.h"
+#include "xml.h"
 #include "getifaddr.h"
 #include "scanner.h"
 #include "sql.h"

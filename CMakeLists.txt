@@ -44,18 +44,13 @@ set (DEFAULT_GROUP "minidlna" CACHE STRING "Default group to run as")
 
 set (SYSTEMD_LIB_DIR "${CMAKE_INSTALL_FULL_LIBDIR}" CACHE PATH "systemd library path")
 
-option (ENABLE_VIDEO_THUMB "enable video thumbnail generation using libavcodec and libswscale" OFF)
+option (ENABLE_VIDEO_THUMB "enable video thumbnail generation using libavcodec and libswscale" ON)
 
 option (ENABLE_SYSTEMD "enable systemd support" ON)
 
 if (LINUX)
     set (ENABLE_SYSTEMD ON)
 endif ()
-
-if (READYNAS)
-    set (NETGEAR ON)
-    set (OS_URL "http://www.readynas.com/")
-endif()
 
 add_subdirectory (po)
 add_subdirectory (src)

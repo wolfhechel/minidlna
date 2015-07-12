@@ -1,7 +1,10 @@
-/* MiniUPnP project
- * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
+/* minimal xml parser
  *
- * Copyright (c) 2006, Thomas Bernard
+ * Project : miniupnp
+ * Website : http://miniupnp.free.fr/
+ * Author : Thomas Bernard
+ *
+ * Copyright (c) 2005, Thomas Bernard
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -26,61 +29,72 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef __UPNPREPLYPARSE_H__
-#define __UPNPREPLYPARSE_H__
+#ifndef __XML_H__
+#define __XML_H__
 
+#include <stdint.h>
 #include <stdint.h>
 #include <sys/queue.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-struct NameValue {
-    LIST_ENTRY(NameValue) entries;
-    char name[64];
-    char value[];
-};
-
-struct NameValueParserData {
-    LIST_HEAD(listhead, NameValue) head;
-    char curelt[64];
-};
+#define IS_WHITE_SPACE(c) ((c==' ') || (c=='\t') || (c=='\r') || (c=='\n'))
 
 #define XML_STORE_EMPTY_FL  0x01
 
+/* if a callback function pointer is set to NULL,
+ * the function is not called */
+struct xmlparser {
+	const char *xmlstart;
+	const char *xmlend;
+	const char *xml;	/* pointer to current character */
+	int xmlsize;
+	uint32_t flags;
+	void * data;
+	void (*starteltfunc) (void *, const char *, int);
+	void (*endeltfunc) (void *, const char *, int);
+	void (*datafunc) (void *, const char *, int);
+	void (*attfunc) (void *, const char *, int, const char *, int);
+};
+
+struct NameValue {
+	LIST_ENTRY(NameValue) entries;
+	char name[64];
+	char value[];
+};
+
+struct NameValueParserData {
+	LIST_HEAD(listhead, NameValue) head;
+	char curelt[64];
+};
+
+/* parsexml()
+ * the xmlparser structure must be initialized before the call
+ * the following structure members have to be initialized :
+ * xmlstart, xmlsize, data, *func
+ * xml is for internal usage, xmlend is computed automatically */
+void parsexml(struct xmlparser *);
+
 /* ParseNameValue() */
 void
-ParseNameValue(const char * buffer, int bufsize,
-               struct NameValueParserData * data, uint32_t flags);
+		ParseNameValue(const char * buffer, int bufsize,
+					   struct NameValueParserData * data, uint32_t flags);
 
 /* ClearNameValueList() */
 void
-ClearNameValueList(struct NameValueParserData * pdata);
+		ClearNameValueList(struct NameValueParserData * pdata);
 
 /* GetValueFromNameValueList() */
 char *
-GetValueFromNameValueList(struct NameValueParserData * pdata,
-                          const char * Name);
+		GetValueFromNameValueList(struct NameValueParserData * pdata,
+								  const char * Name);
 
 char *
-GetValueFromNameValueListWithResumeSupport(struct NameValueParserData * pdata,
-const char * Name, struct NameValue const ** resume);
+		GetValueFromNameValueListWithResumeSupport(struct NameValueParserData * pdata,
+												   const char * Name, struct NameValue const ** resume);
 
 /* GetValueFromNameValueListIgnoreNS() */
 char *
-GetValueFromNameValueListIgnoreNS(struct NameValueParserData * pdata,
-                                  const char * Name);
-
-/* DisplayNameValueList() */
-#ifdef DEBUG
-void
-DisplayNameValueList(char * buffer, int bufsize);
-#endif
-
-#ifdef __cplusplus
-}
-#endif
+		GetValueFromNameValueListIgnoreNS(struct NameValueParserData * pdata,
+										  const char * Name);
 
 #endif
 

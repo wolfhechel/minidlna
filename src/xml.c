@@ -29,8 +29,12 @@ CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 */
-#include "minixml.h"
-#include "upnp/upnpreplyparse.h"
+
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+
+#include "xml.h"
 
 /* parseatt : used to parse the argument list
  * return 0 (false) in case of success and -1 (true) if the end
@@ -192,3 +196,94 @@ void parsexml(struct xmlparser * parser)
 }
 
 
+static void
+NameValueParserStartElt(void * d, const char * name, int l)
+{
+	struct NameValueParserData * data = (struct NameValueParserData *)d;
+	if(l>63)
+		l = 63;
+	memcpy(data->curelt, name, l);
+	data->curelt[l] = '\0';
+
+	/* store root element */
+	if(!data->head.lh_first)
+	{
+		struct NameValue * nv;
+		nv = malloc(sizeof(struct NameValue)+l+1);
+		strcpy(nv->name, "rootElement");
+		memcpy(nv->value, name, l);
+		nv->value[l] = '\0';
+		LIST_INSERT_HEAD(&(data->head), nv, entries);
+	}
+}
+
+static void
+NameValueParserGetData(void * d, const char * datas, int l)
+{
+	struct NameValueParserData * data = (struct NameValueParserData *)d;
+	struct NameValue * nv;
+	if(l>1975)
+		l = 1975;
+	nv = malloc(sizeof(struct NameValue)+l+1);
+	strncpy(nv->name, data->curelt, 64);
+	nv->name[63] = '\0';
+	memcpy(nv->value, datas, l);
+	nv->value[l] = '\0';
+	LIST_INSERT_HEAD(&(data->head), nv, entries);
+}
+
+void
+ParseNameValue(const char * buffer, int bufsize,
+			   struct NameValueParserData * data, uint32_t flags)
+{
+	struct xmlparser parser;
+	LIST_INIT(&(data->head));
+	/* init xmlparser object */
+	parser.xmlstart = buffer;
+	parser.xmlsize = bufsize;
+	parser.data = data;
+	parser.starteltfunc = NameValueParserStartElt;
+	parser.endeltfunc = 0;
+	parser.datafunc = NameValueParserGetData;
+	parser.attfunc = 0;
+	parser.flags = flags;
+	parsexml(&parser);
+}
+
+void
+ClearNameValueList(struct NameValueParserData * pdata)
+{
+	struct NameValue * nv;
+	while((nv = pdata->head.lh_first) != NULL)
+	{
+		LIST_REMOVE(nv, entries);
+		free(nv);
+	}
+}
+
+char *
+GetValueFromNameValueList(struct NameValueParserData * pdata,
+						  const char * Name)
+{
+	return GetValueFromNameValueListWithResumeSupport(pdata, Name, NULL);
+}
+
+char *
+GetValueFromNameValueListWithResumeSupport(struct NameValueParserData * pdata,
+										   const char * Name, struct NameValue const ** resume)
+{
+	const struct NameValue * nv = (resume == NULL || *resume == NULL) ? pdata->head.lh_first : *resume;
+	const char * p = NULL;
+	while (nv != NULL && p == NULL)
+	{
+		if (strcmp(nv->name, Name) == 0)
+		{
+			p = nv->value;
+		}
+
+		nv = nv->entries.le_next;
+	}
+
+	if (resume != NULL) *resume = nv;
+	return (char*) p;
+}

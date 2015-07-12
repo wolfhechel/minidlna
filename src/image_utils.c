@@ -39,7 +39,7 @@
 #include <endian.h>
 #endif
 
-#include "upnp/upnpreplyparse.h"
+#include "xml.h"
 #include "image_utils.h"
 #include "log.h"
 

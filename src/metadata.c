@@ -36,7 +36,7 @@
 #include "minidlna.h"
 #include "tagutils/tagutils.h"
 #include "image_utils.h"
-#include "upnp/upnpreplyparse.h"
+#include "xml.h"
 #include "metadata.h"
 #include "albumart.h"
 #include "utils.h"
