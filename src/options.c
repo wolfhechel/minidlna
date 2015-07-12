@@ -219,3 +219,37 @@ freeoptions(void)
 	}
 }
 
+int strtobool(const char *str)
+{
+	return ((strcasecmp(str, "yes") == 0) ||
+			(strcasecmp(str, "true") == 0) ||
+			(atoi(str) == 1));
+}
+
+struct linked_names_s * parse_delimited_list_of_options(char * input, const char * delimiter) {
+	struct linked_names_s * linked_entry = NULL, * return_value;
+	char * word;
+	for (return_value = NULL; (word = strtok(input, delimiter)); input = NULL) {
+		struct linked_names_s * entry = calloc(1, sizeof(struct linked_names_s));
+		int len = strlen(word);
+		if (word[len - 1] == '*')
+		{
+			word[len - 1] = '\0';
+			entry->wildcard = 1;
+		}
+		entry->name = strdup(word);
+		if (return_value) linked_entry->next = entry;
+		else return_value = entry;
+
+		linked_entry = entry;
+	}
+	return return_value;
+}
+
+void
+add_element_to_linked_list(void **root, void* entry)
+{
+	while (*root != NULL) root = (void**)&(*(char*)*root); // make use of the fact that the next pointer is the first element
+	*root = entry;
+}
+

@@ -83,47 +83,13 @@ AddMulticastMembership(int s, struct lan_addr_s *iface)
 	return 0;
 }
 
-/* Open and configure the socket listening for 
- * SSDP udp packets sent on 239.255.255.250 port 1900 */
-int
-OpenAndConfSSDPReceiveSocket(void)
-{
-	int s;
-	int i = 1;
-	struct sockaddr_in sockname;
-	
-	s = socket(PF_INET, SOCK_DGRAM, 0);
-	if (s < 0)
-	{
-		DPRINTF(E_ERROR, L_SSDP, "socket(udp): %s\n", strerror(errno));
-		return -1;
-	}	
-
-	if (setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &i, sizeof(i)) < 0)
-		DPRINTF(E_WARN, L_SSDP, "setsockopt(udp, SO_REUSEADDR): %s\n", strerror(errno));
-	
-	memset(&sockname, 0, sizeof(struct sockaddr_in));
-	sockname.sin_family = AF_INET;
-	sockname.sin_port = htons(SSDP_PORT);
-	/* NOTE : it seems it doesnt work when binding on the specific address */
-	sockname.sin_addr.s_addr = htonl(INADDR_ANY);
-
-	if (bind(s, (struct sockaddr *)&sockname, sizeof(struct sockaddr_in)) < 0)
-	{
-		DPRINTF(E_ERROR, L_SSDP, "bind(udp): %s\n", strerror(errno));
-		close(s);
-		return -1;
-	}
-
-	return s;
-}
-
 /* open the UDP socket used to send SSDP notifications to
  * the multicast group reserved for them */
 int
 OpenAndConfSSDPNotifySocket(struct lan_addr_s *iface)
 {
 	int s;
+	int i = 1;
 	unsigned char loopchar = 0;
 	int bcast = 1;
 	uint8_t ttl = 4;
@@ -162,9 +128,16 @@ OpenAndConfSSDPNotifySocket(struct lan_addr_s *iface)
 		return -1;
 	}
 
+	if (setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &i, sizeof(i)) < 0)
+		DPRINTF(E_WARN, L_SSDP, "setsockopt(udp, SO_REUSEADDR): %s\n", strerror(errno));
+
+	if (setsockopt(s, SOL_SOCKET, SO_REUSEPORT, &i, sizeof(i)) < 0)
+		DPRINTF(E_WARN, L_SSDP, "setsockopt(udp, SO_REUSEPORT): %s\n", strerror(errno));
+
 	memset(&sockname, 0, sizeof(struct sockaddr_in));
 	sockname.sin_family = AF_INET;
-	sockname.sin_addr.s_addr = iface->addr.s_addr;
+	sockname.sin_port = htons(SSDP_PORT);
+	sockname.sin_addr.s_addr = htonl(INADDR_ANY);
 
 	if (bind(s, (struct sockaddr *)&sockname, sizeof(struct sockaddr_in)) < 0)
 	{
@@ -173,7 +146,7 @@ OpenAndConfSSDPNotifySocket(struct lan_addr_s *iface)
 		return -1;
 	}
 
-	if (AddMulticastMembership(sssdp, iface) < 0)
+	if (AddMulticastMembership(s, iface) < 0)
 	{
 		DPRINTF(E_WARN, L_SSDP, "Failed to add multicast membership for address %s\n", 
 			iface->str);

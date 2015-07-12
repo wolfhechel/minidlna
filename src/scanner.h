@@ -24,6 +24,8 @@
 #ifndef __SCANNER_H__
 #define __SCANNER_H__
 
+#include "sql.h"
+
 /* Try to be generally PlaysForSure compatible by using similar IDs */
 #define BROWSEDIR_ID		"64"
 
@@ -80,6 +82,9 @@ insert_file(char *name, const char *path, const char *parentID, int object, medi
 
 int
 CreateDatabase(void);
+
+void
+check_db(sqlite3 *db, int new_db, pid_t *scanner_pid);
 
 void
 start_scanner();

@@ -32,6 +32,7 @@
 #include "minidlna.h"
 #include "scanner.h"
 #include "metadata.h"
+#include "crypt.h"
 #include "utils.h"
 #include "sql.h"
 #include "log.h"

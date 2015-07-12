@@ -57,6 +57,9 @@ pid_t process_fork(struct client_cache_s *client);
  */
 void process_handle_child_termination(int signal);
 
+int
+writepidfile(const char *fname, int pid, uid_t uid);
+
 /**
  * Daemonize the current process by forking itself and redirecting standard
  * input, standard output and standard error to /dev/null.

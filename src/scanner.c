@@ -694,10 +694,96 @@ sql_failed:
 	return (ret != SQLITE_OK);
 }
 
+void
+check_db(sqlite3 *db, int new_db, pid_t *scanner_pid)
+{
+	struct media_dir_s *media_path = NULL;
+	char cmd[PATH_MAX*2];
+	char **result;
+	int i, rows = 0;
+	int ret;
+
+	if (!new_db)
+	{
+		/* Check if any new media dirs appeared */
+		media_path = media_dirs;
+		while (media_path)
+		{
+			ret = sql_get_int_field(db, "SELECT TIMESTAMP from DETAILS where PATH = %Q", media_path->path);
+			if (ret != media_path->types)
+			{
+				ret = 1;
+				goto rescan;
+			}
+			media_path = media_path->next;
+		}
+		/* Check if any media dirs disappeared */
+		sql_get_table(db, "SELECT VALUE from SETTINGS where KEY = 'media_dir'", &result, &rows, NULL);
+		for (i=1; i <= rows; i++)
+		{
+			media_path = media_dirs;
+			while (media_path)
+			{
+				if (strcmp(result[i], media_path->path) == 0)
+					break;
+				media_path = media_path->next;
+			}
+			if (!media_path)
+			{
+				ret = 2;
+				sqlite3_free_table(result);
+				goto rescan;
+			}
+		}
+		sqlite3_free_table(result);
+	}
+
+	ret = db_upgrade(db);
+	if (ret != 0)
+	{
+		rescan:
+		if (ret < 0)
+			DPRINTF(E_WARN, L_GENERAL, "Creating new database at %s/files.db\n", db_path);
+		else if (ret == 1)
+			DPRINTF(E_WARN, L_GENERAL, "New media_dir detected; rescanning...\n");
+		else if (ret == 2)
+			DPRINTF(E_WARN, L_GENERAL, "Removed media_dir detected; rescanning...\n");
+		else
+			DPRINTF(E_WARN, L_GENERAL, "Database version mismatch (%d=>%d); need to recreate...\n",
+					ret, DB_VERSION);
+		sqlite3_close(db);
+
+		snprintf(cmd, sizeof(cmd), "rm -rf %s/files.db %s/art_cache", db_path, db_path);
+		if (system(cmd) != 0)
+			DPRINTF(E_FATAL, L_GENERAL, "Failed to clean old file cache!  Exiting...\n");
+
+		open_db(&db);
+		if (CreateDatabase() != 0)
+			DPRINTF(E_FATAL, L_GENERAL, "ERROR: Failed to create sqlite database!  Exiting...\n");
+
+		scanning = 1;
+		sqlite3_close(db);
+		*scanner_pid = fork();
+		open_db(&db);
+		if (*scanner_pid == 0) /* child (scanner) process */
+		{
+			start_scanner();
+			sqlite3_close(db);
+			log_close();
+			exit(EXIT_SUCCESS);
+		}
+		else if (*scanner_pid < 0)
+		{
+			start_scanner();
+		}
+	}
+}
+
 static int
 filter_ignored(scan_filter *d)
 {
 	struct linked_names_s *ignored_path;
+
 	for (ignored_path = ignore_paths; ignored_path; ignored_path = ignored_path->next)
 	{
 		if (strstr(d->d_name, ignored_path->name) != NULL) return 0;
@@ -987,26 +1073,6 @@ mta_error:
 	sqlite3_free(sql);
 }
 
-static void
-_notify_start(void)
-{
-#ifdef READYNAS
-	FILE *flag = fopen("/ramfs/.upnp-av_scan", "w");
-	if( flag )
-		fclose(flag);
-#endif
-}
-
-static void
-_notify_stop(void)
-{
-#ifdef READYNAS
-	if( access("/ramfs/.rescan_done", F_OK) == 0 )
-		system("/bin/sh /ramfs/.rescan_done");
-	unlink("/ramfs/.upnp-av_scan");
-#endif
-}
-
 void
 start_scanner()
 {
@@ -1015,7 +1081,6 @@ start_scanner()
 
 	if (setpriority(PRIO_PROCESS, 0, 15) == -1)
 		DPRINTF(E_WARN, L_INOTIFY,  "Failed to reduce scanner thread priority\n");
-	_notify_start();
 
 	setlocale(LC_COLLATE, "");
 
@@ -1046,7 +1111,7 @@ start_scanner()
 		ScanDirectory(media_path->path, parent, media_path->types);
 		sql_exec(db, "INSERT into SETTINGS values (%Q, %Q)", "media_dir", media_path->path);
 	}
-	_notify_stop();
+
 	/* Create this index after scanning, so it doesn't slow down the scanning process.
 	 * This index is very useful for large libraries used with an XBox360 (or any
 	 * client that uses UPnPSearch on large containers). */

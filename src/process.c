@@ -37,10 +37,12 @@
 #include <string.h>
 #include <signal.h>
 #include <sys/wait.h>
+#include <sys/syslimits.h>
+#include <libgen.h>
 
 #include "minidlna.h"
 #include "process.h"
-#include "config.h"
+#include "utils.h"
 #include "log.h"
 
 struct child *children = NULL;
@@ -122,6 +124,71 @@ process_handle_child_termination(int signal)
 		number_of_children--;
 		remove_process_info(pid);
 	}
+}
+
+int
+writepidfile(const char *fname, int pid, uid_t uid)
+{
+	FILE *pidfile;
+	struct stat st;
+	char path[PATH_MAX], *dir;
+	int ret = 0;
+
+	if(!fname || *fname == '\0')
+		return -1;
+
+	/* Create parent directory if it doesn't already exist */
+	strncpyt(path, fname, sizeof(path));
+	dir = dirname(path);
+	if (stat(dir, &st) == 0)
+	{
+		if (!S_ISDIR(st.st_mode))
+		{
+			DPRINTF(E_ERROR, L_GENERAL, "Pidfile path is not a directory: %s\n",
+					fname);
+			return -1;
+		}
+	}
+	else
+	{
+		if (make_dir(dir, S_IRWXU|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH) != 0)
+		{
+			DPRINTF(E_ERROR, L_GENERAL, "Unable to create pidfile directory: %s\n",
+					fname);
+			return -1;
+		}
+		if (uid > 0)
+		{
+			if (chown(dir, uid, -1) != 0)
+				DPRINTF(E_WARN, L_GENERAL, "Unable to change pidfile %s ownership: %s\n",
+						dir, strerror(errno));
+		}
+	}
+
+	pidfile = fopen(fname, "w");
+	if (!pidfile)
+	{
+		DPRINTF(E_ERROR, L_GENERAL, "Unable to open pidfile for writing %s: %s\n",
+				fname, strerror(errno));
+		return -1;
+	}
+
+	if (fprintf(pidfile, "%d\n", pid) <= 0)
+	{
+		DPRINTF(E_ERROR, L_GENERAL,
+				"Unable to write to pidfile %s: %s\n", fname, strerror(errno));
+		ret = -1;
+	}
+	if (uid > 0)
+	{
+		if (fchown(fileno(pidfile), uid, -1) != 0)
+			DPRINTF(E_WARN, L_GENERAL, "Unable to change pidfile %s ownership: %s\n",
+					fname, strerror(errno));
+	}
+
+	fclose(pidfile);
+
+	return ret;
 }
 
 int

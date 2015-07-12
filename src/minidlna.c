@@ -50,26 +50,18 @@
 #include <unistd.h>
 #include <string.h>
 #include <stdio.h>
-#include <ctype.h>
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <sys/wait.h>
 #include <sys/file.h>
 #include <sys/time.h>
 #include <sys/param.h>
 #include <sys/stat.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#include <fcntl.h>
-#include <time.h>
 #include <signal.h>
 #include <errno.h>
 #include <pthread.h>
-#include <limits.h>
-#include <libgen.h>
 #include <pwd.h>
-
-#include "config.h"
 
 #ifdef ENABLE_NLS
 #include <locale.h>
@@ -78,26 +70,17 @@
 
 #include "minidlna.h"
 #include "upnp/upnphttp.h"
-#include "upnp/upnpdescgen.h"
-#include "upnp/upnpsoap.h"
 #include "upnp/minissdp.h"
 #include "upnp/upnpevents.h"
 #include "sql.h"
-#include "naturalsort.h"
-#include "minidlnapath.h"
 #include "getifaddr.h"
 #include "options.h"
 #include "utils.h"
-#include "minidlnatypes.h"
 #include "process.h"
 #include "scanner.h"
 #include "inotify.h"
 #include "log.h"
 
-
-
-/* startup time */
-time_t startup_time = 0;
 
 struct runtime_vars_s runtime_vars;
 uint32_t runtime_flags = INOTIFY_MASK;
@@ -108,7 +91,7 @@ char uuidvalue[] = "uuid:00000000-0000-0000-0000-000000000000";
 char modelname[MODELNAME_MAX_LEN] = ROOTDEV_MODELNAME;
 char modelnumber[MODELNUMBER_MAX_LEN] = PACKAGE_VERSION;
 char serialnumber[SERIALNUMBER_MAX_LEN] = "00000000";
-char pnpx_hwid[] = "VEN_0000&amp;DEV_0000&amp;REV_01 VEN_0033&amp;DEV_0001&amp;REV_01";
+char friendly_name[FRIENDLYNAME_MAX_LEN];
 
 /* presentation url :
  * http://nnn.nnn.nnn.nnn:ppppp/  => max 30 bytes including terminating 0 */
@@ -116,11 +99,9 @@ char presentationurl[PRESENTATIONURL_MAX_LEN];
 
 int n_lan_addr = 0;
 struct lan_addr_s lan_addr[MAX_LAN_ADDR];
-int sssdp = -1;
 
 /* UPnP-A/V [DLNA] */
 sqlite3 *db;
-char friendly_name[FRIENDLYNAME_MAX_LEN];
 char db_path[PATH_MAX] = {'\0'};
 char log_path[PATH_MAX] = {'\0'};
 struct media_dir_s * media_dirs = NULL;
@@ -135,50 +116,6 @@ const char *force_sort_criteria = NULL;
 # warning "Your SQLite3 library appears to be too old!  Please use 3.5.1 or newer."
 # define sqlite3_threadsafe() 0
 #endif
- 
-/* OpenAndConfHTTPSocket() :
- * setup the socket used to handle incoming HTTP connections. */
-static int
-OpenAndConfHTTPSocket(unsigned short port)
-{
-	int s;
-	int i = 1;
-	struct sockaddr_in listenname;
-
-	/* Initialize client type cache */
-	memset(&clients, 0, sizeof(struct client_cache_s));
-
-	s = socket(PF_INET, SOCK_STREAM, 0);
-	if (s < 0)
-	{
-		DPRINTF(E_ERROR, L_GENERAL, "socket(http): %s\n", strerror(errno));
-		return -1;
-	}
-
-	if (setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &i, sizeof(i)) < 0)
-		DPRINTF(E_WARN, L_GENERAL, "setsockopt(http, SO_REUSEADDR): %s\n", strerror(errno));
-
-	memset(&listenname, 0, sizeof(struct sockaddr_in));
-	listenname.sin_family = AF_INET;
-	listenname.sin_port = htons(port);
-	listenname.sin_addr.s_addr = htonl(INADDR_ANY);
-
-	if (bind(s, (struct sockaddr *)&listenname, sizeof(struct sockaddr_in)) < 0)
-	{
-		DPRINTF(E_ERROR, L_GENERAL, "bind(http): %s\n", strerror(errno));
-		close(s);
-		return -1;
-	}
-
-	if (listen(s, 6) < 0)
-	{
-		DPRINTF(E_ERROR, L_GENERAL, "listen(http): %s\n", strerror(errno));
-		close(s);
-		return -1;
-	}
-
-	return s;
-}
 
 /* Handler for the SIGTERM signal (kill) 
  * SIGINT is also handled */
@@ -208,13 +145,6 @@ sighup(int sig)
 	DPRINTF(E_WARN, L_GENERAL, "received signal %d, re-read\n", sig);
 
 	reload_ifaces(1);
-}
-
-/* record the startup time */
-static void
-set_startup_time(void)
-{
-	startup_time = time(NULL);
 }
 
 static void
@@ -250,190 +180,6 @@ getfriendlyname(char *buf, int len)
 	snprintf(buf+off, len-off, "%s", logname?logname:"Unknown");
 }
 
-static int
-open_db(sqlite3 **sq3)
-{
-	char path[PATH_MAX];
-	int new_db = 0;
-
-	snprintf(path, sizeof(path), "%s/files.db", db_path);
-	if (access(path, F_OK) != 0)
-	{
-		new_db = 1;
-		make_dir(db_path, S_ISVTX|S_IRWXU|S_IRWXG|S_IRWXO);
-	}
-	if (sqlite3_open(path, &db) != SQLITE_OK)
-		DPRINTF(E_FATAL, L_GENERAL, "ERROR: Failed to open sqlite database!  Exiting...\n");
-	if (sq3)
-		*sq3 = db;
-	sqlite3_busy_timeout(db, 5000);
-	sql_exec(db, "pragma page_size = 4096");
-	sql_exec(db, "pragma journal_mode = OFF");
-	sql_exec(db, "pragma synchronous = OFF;");
-	sql_exec(db, "pragma default_cache_size = 8192;");
-	sqlite3_create_collation(db, "naturalsort", SQLITE_UTF8, NULL, naturalsort);
-
-	return new_db;
-}
-
-static void
-check_db(sqlite3 *db, int new_db, pid_t *scanner_pid)
-{
-	struct media_dir_s *media_path = NULL;
-	char cmd[PATH_MAX*2];
-	char **result;
-	int i, rows = 0;
-	int ret;
-
-	if (!new_db)
-	{
-		/* Check if any new media dirs appeared */
-		media_path = media_dirs;
-		while (media_path)
-		{
-			ret = sql_get_int_field(db, "SELECT TIMESTAMP from DETAILS where PATH = %Q", media_path->path);
-			if (ret != media_path->types)
-			{
-				ret = 1;
-				goto rescan;
-			}
-			media_path = media_path->next;
-		}
-		/* Check if any media dirs disappeared */
-		sql_get_table(db, "SELECT VALUE from SETTINGS where KEY = 'media_dir'", &result, &rows, NULL);
-		for (i=1; i <= rows; i++)
-		{
-			media_path = media_dirs;
-			while (media_path)
-			{
-				if (strcmp(result[i], media_path->path) == 0)
-					break;
-				media_path = media_path->next;
-			}
-			if (!media_path)
-			{
-				ret = 2;
-				sqlite3_free_table(result);
-				goto rescan;
-			}
-		}
-		sqlite3_free_table(result);
-	}
-
-	ret = db_upgrade(db);
-	if (ret != 0)
-	{
-rescan:
-		if (ret < 0)
-			DPRINTF(E_WARN, L_GENERAL, "Creating new database at %s/files.db\n", db_path);
-		else if (ret == 1)
-			DPRINTF(E_WARN, L_GENERAL, "New media_dir detected; rescanning...\n");
-		else if (ret == 2)
-			DPRINTF(E_WARN, L_GENERAL, "Removed media_dir detected; rescanning...\n");
-		else
-			DPRINTF(E_WARN, L_GENERAL, "Database version mismatch (%d=>%d); need to recreate...\n",
-				ret, DB_VERSION);
-		sqlite3_close(db);
-
-		snprintf(cmd, sizeof(cmd), "rm -rf %s/files.db %s/art_cache", db_path, db_path);
-		if (system(cmd) != 0)
-			DPRINTF(E_FATAL, L_GENERAL, "Failed to clean old file cache!  Exiting...\n");
-
-		open_db(&db);
-		if (CreateDatabase() != 0)
-			DPRINTF(E_FATAL, L_GENERAL, "ERROR: Failed to create sqlite database!  Exiting...\n");
-
-		scanning = 1;
-		sqlite3_close(db);
-		*scanner_pid = fork();
-		open_db(&db);
-		if (*scanner_pid == 0) /* child (scanner) process */
-		{
-			start_scanner();
-			sqlite3_close(db);
-			log_close();
-			freeoptions();
-			exit(EXIT_SUCCESS);
-		}
-		else if (*scanner_pid < 0)
-		{
-			start_scanner();
-		}
-	}
-}
-
-static int
-writepidfile(const char *fname, int pid, uid_t uid)
-{
-	FILE *pidfile;
-	struct stat st;
-	char path[PATH_MAX], *dir;
-	int ret = 0;
-
-	if(!fname || *fname == '\0')
-		return -1;
-
-	/* Create parent directory if it doesn't already exist */
-	strncpyt(path, fname, sizeof(path));
-	dir = dirname(path);
-	if (stat(dir, &st) == 0)
-	{
-		if (!S_ISDIR(st.st_mode))
-		{
-			DPRINTF(E_ERROR, L_GENERAL, "Pidfile path is not a directory: %s\n",
-				fname);
-			return -1;
-		}
-	}
-	else
-	{
-		if (make_dir(dir, S_IRWXU|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH) != 0)
-		{
-			DPRINTF(E_ERROR, L_GENERAL, "Unable to create pidfile directory: %s\n",
-				fname);
-			return -1;
-		}
-		if (uid > 0)
-		{
-			if (chown(dir, uid, -1) != 0)
-				DPRINTF(E_WARN, L_GENERAL, "Unable to change pidfile %s ownership: %s\n",
-					dir, strerror(errno));
-		}
-	}
-	
-	pidfile = fopen(fname, "w");
-	if (!pidfile)
-	{
-		DPRINTF(E_ERROR, L_GENERAL, "Unable to open pidfile for writing %s: %s\n",
-			fname, strerror(errno));
-		return -1;
-	}
-
-	if (fprintf(pidfile, "%d\n", pid) <= 0)
-	{
-		DPRINTF(E_ERROR, L_GENERAL, 
-			"Unable to write to pidfile %s: %s\n", fname, strerror(errno));
-		ret = -1;
-	}
-	if (uid > 0)
-	{
-		if (fchown(fileno(pidfile), uid, -1) != 0)
-			DPRINTF(E_WARN, L_GENERAL, "Unable to change pidfile %s ownership: %s\n",
-				fname, strerror(errno));
-	}
-
-	fclose(pidfile);
-
-	return ret;
-}
-
-static int strtobool(const char *str)
-{
-	return ((strcasecmp(str, "yes") == 0) ||
-		(strcasecmp(str, "true") == 0) ||
-		(atoi(str) == 1));
-}
-
 static void init_nls(void) {
 #ifdef ENABLE_NLS
 	setlocale(LC_MESSAGES, "");
@@ -441,33 +187,6 @@ static void init_nls(void) {
 	DPRINTF(E_DEBUG, L_GENERAL, "Using locale dir %s\n", bindtextdomain("minidlna", getenv("TEXTDOMAINDIR")));
 	textdomain("minidlna");
 #endif
-}
-
-struct linked_names_s * parse_delimited_list_of_options(char * input, const char * delimiter) {
-	struct linked_names_s * linked_entry = NULL, * return_value;
-	char * word;
-	for (return_value = NULL; (word = strtok(input, delimiter)); input = NULL) {
-		struct linked_names_s * entry = calloc(1, sizeof(struct linked_names_s));
-		int len = strlen(word);
-		if (word[len - 1] == '*')
-		{
-			word[len - 1] = '\0';
-			entry->wildcard = 1;
-		}
-		entry->name = strdup(word);
-		if (return_value) linked_entry->next = entry;
-		else return_value = entry;
-
-		linked_entry = entry;
-	}
-	return return_value;
-}
-
-static void
-add_element_to_linked_list(void **root, void* entry)
-{
-	while (*root != NULL) root = (void**)&(*(char*)*root); // make use of the fact that the next pointer is the first element
-	*root = entry;
 }
 
 /* init phase :
@@ -905,15 +624,12 @@ init(int argc, char **argv)
 	else
 	{
 		pid = process_daemonize();
-		#ifdef READYNAS
-		unlink("/ramfs/.upnp-av_scan");
-		path = "/var/log/upnp-av.log";
-		#else
+
 		if (access(db_path, F_OK) != 0)
 			make_dir(db_path, S_ISVTX|S_IRWXU|S_IRWXG|S_IRWXO);
+
 		snprintf(buf, sizeof(buf), "%s/minidlna.log", log_path);
 		path = buf;
-		#endif
 	}
 	log_init(path, log_level);
 
@@ -921,9 +637,7 @@ init(int argc, char **argv)
 	{
 		DPRINTF(E_ERROR, L_GENERAL, SERVER_NAME " is already running. EXITING.\n");
 		return 1;
-	}	
-
-	set_startup_time();
+	}
 
 	/* presentation url */
 	if (presurl)
@@ -980,16 +694,27 @@ main(int argc, char **argv)
 	int ret, i;
 	int shttpl = -1;
 	int smonitor = -1;
+
 	LIST_HEAD(httplisthead, upnphttp) upnphttphead;
-	struct upnphttp * e = 0;
-	struct upnphttp * next;
-	fd_set readset;	/* for select() */
-	fd_set writeset;
-	struct timeval timeout, timeofday, lastnotifytime = {0, 0};
+
+	struct upnphttp * e = 0,
+			        * next,
+			        * tmp;
+
+	fd_set readset,
+		   writeset;	/* for select() */
+
+	struct timeval timeout,
+			       timeofday,
+			       lastnotifytime = {0, 0};
+
 	time_t lastupdatetime = 0;
-	int max_fd = -1;
-	int last_changecnt = 0;
+
+	int max_fd = -1,
+		last_changecnt = 0;
+
 	pid_t scanner_pid = 0;
+
 	pthread_t inotify_thread = 0;
 
 	for (i = 0; i < L_MAX; i++)
@@ -1028,11 +753,6 @@ main(int argc, char **argv)
 #endif
 	smonitor = OpenAndConfMonitorSocket();
 
-	sssdp = OpenAndConfSSDPReceiveSocket();
-	if (sssdp < 0)
-	{
-		DPRINTF(E_FATAL, L_GENERAL, "Failed to open socket for receiving SSDP. EXITING\n");
-	}
 	/* open socket for HTTP connections. */
 	shttpl = OpenAndConfHTTPSocket(runtime_vars.port);
 	if (shttpl < 0)
@@ -1045,6 +765,7 @@ main(int argc, char **argv)
 	/* main loop */
 	while (!quitting)
 	{
+
 		/* Check if we need to send SSDP NOTIFY messages and do it if
 		 * needed */
 		if (gettimeofday(&timeofday, 0) < 0)
@@ -1095,22 +816,21 @@ main(int argc, char **argv)
 		/* select open sockets (SSDP, HTTP listen, and all HTTP soap sockets) */
 		FD_ZERO(&readset);
 
-		if (sssdp >= 0) 
+		for (i = 0; i < n_lan_addr; i++)
 		{
-			FD_SET(sssdp, &readset);
-			max_fd = MAX(max_fd, sssdp);
+			FD_SET(lan_addr[i].snotify, &readset);
+		}
+
+		if (smonitor >= 0)
+		{
+			FD_SET(smonitor, &readset);
+			max_fd = MAX(max_fd, smonitor);
 		}
 		
 		if (shttpl >= 0) 
 		{
 			FD_SET(shttpl, &readset);
 			max_fd = MAX(max_fd, shttpl);
-		}
-
-		if (smonitor >= 0) 
-		{
-			FD_SET(smonitor, &readset);
-			max_fd = MAX(max_fd, smonitor);
 		}
 
 		i = 0;	/* active HTTP connections count */
@@ -1123,6 +843,7 @@ main(int argc, char **argv)
 				i++;
 			}
 		}
+
 		FD_ZERO(&writeset);
 		upnpevents_selectfds(&readset, &writeset, &max_fd);
 
@@ -1134,12 +855,15 @@ main(int argc, char **argv)
 			DPRINTF(E_ERROR, L_GENERAL, "select(all): %s\n", strerror(errno));
 			DPRINTF(E_FATAL, L_GENERAL, "Failed to select open sockets. EXITING\n");
 		}
+
 		upnpevents_processfds(&readset, &writeset);
+
 		/* process SSDP packets */
-		if (sssdp >= 0 && FD_ISSET(sssdp, &readset))
+		for (i = 0; i < n_lan_addr; i++)
 		{
-			/*DPRINTF(E_DEBUG, L_GENERAL, "Received SSDP Packet\n");*/
-			ProcessSSDPRequest(sssdp, (unsigned short)runtime_vars.port);
+			if (FD_ISSET(lan_addr[i].snotify, &readset)) {
+				ProcessSSDPRequest(lan_addr[i].snotify, runtime_vars.port);
+			}
 		}
 
 		if (smonitor >= 0 && FD_ISSET(smonitor, &readset))
@@ -1167,38 +891,10 @@ main(int argc, char **argv)
 		/* process incoming HTTP connections */
 		if (shttpl >= 0 && FD_ISSET(shttpl, &readset))
 		{
-			int shttp;
-			socklen_t clientnamelen;
-			struct sockaddr_in clientname;
-			clientnamelen = sizeof(struct sockaddr_in);
-			shttp = accept(shttpl, (struct sockaddr *)&clientname, &clientnamelen);
-			if (shttp<0)
-			{
-				DPRINTF(E_ERROR, L_GENERAL, "accept(http): %s\n", strerror(errno));
-			}
-			else
-			{
-				struct upnphttp * tmp = 0;
-				DPRINTF(E_DEBUG, L_GENERAL, "HTTP connection from %s:%d\n",
-					inet_ntoa(clientname.sin_addr),
-					ntohs(clientname.sin_port) );
-				/*if (fcntl(shttp, F_SETFL, O_NONBLOCK) < 0) {
-					DPRINTF(E_ERROR, L_GENERAL, "fcntl F_SETFL, O_NONBLOCK\n");
-				}*/
-				/* Create a new upnphttp object and add it to
-				 * the active upnphttp object list */
-				tmp = New_upnphttp(shttp);
-				if (tmp)
-				{
-					tmp->clientaddr = clientname.sin_addr;
-					LIST_INSERT_HEAD(&upnphttphead, tmp, entries);
-				}
-				else
-				{
-					DPRINTF(E_ERROR, L_GENERAL, "New_upnphttp() failed\n");
-					close(shttp);
-				}
-			}
+			tmp = Accept_upnphttp(shttpl);
+
+			if (tmp)
+				LIST_INSERT_HEAD(&upnphttphead, tmp, entries);
 		}
 		/* delete finished HTTP connections */
 		for (e = upnphttphead.lh_first; e != NULL; e = next)
@@ -1228,8 +924,7 @@ shutdown:
 		LIST_REMOVE(e, entries);
 		Delete_upnphttp(e);
 	}
-	if (sssdp >= 0)
-		close(sssdp);
+
 	if (shttpl >= 0)
 		close(shttpl);
 

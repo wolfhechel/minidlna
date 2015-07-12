@@ -129,8 +129,14 @@ struct upnphttp {
 #define FLAG_CAPTION            0x00008000
 
 #ifndef MSG_MORE
-#define MSG_MORE 0
+#	define MSG_MORE 0
 #endif
+
+int
+OpenAndConfHTTPSocket(unsigned short port);
+
+struct upnphttp *
+Accept_upnphttp(int shttpl);
 
 /* New_upnphttp() */
 struct upnphttp *

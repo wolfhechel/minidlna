@@ -38,6 +38,19 @@
    (x[4] == 0x00) && \
    (x[5] == 0x00))
 
+
+#define MAX_LAN_ADDR 4
+
+/* structure for storing lan addresses
+ * with ascii representation and mask */
+struct lan_addr_s {
+ char str[16];	/* example: 192.168.0.1 */
+ struct in_addr addr;	/* ip */
+ struct in_addr mask;	/* netmask */
+ int snotify;	/* notify socket */
+ unsigned int ifindex;	/* interface index */
+};
+
 int getsyshwaddr(char *buf, int len);
 int get_remote_mac(struct in_addr ip_addr, unsigned char *mac);
 void reload_ifaces(int notify);

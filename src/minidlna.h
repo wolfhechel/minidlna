@@ -7,21 +7,35 @@
 
 #include <time.h>
 
+#include <sqlite3.h>
+
 #include "minidlnatypes.h"
 #include "clients.h"
 #include "config.h"
 
-#include <sqlite3.h>
+#include "getifaddr.h"
+struct runtime_vars_s {
+	unsigned short port;	/* HTTP Port */
+	unsigned int notify_interval;	/* seconds between SSDP announces */
+	unsigned int max_connections;	/* max number of simultaneous conenctions */
+	const char *root_container;	/* root ObjectID (instead of "0") */
+	const char *ifaces[MAX_LAN_ADDR];	/* list of configured network interfaces */
+#ifdef ENABLE_VIDEO_THUMB
+	int thumb_width;	/* Video thumbnail width */
+#endif
+	int mta;
+};
 
 #define SERVER_NAME "MiniDLNA"
 
 #define DB_VERSION 11
 
 #ifdef ENABLE_NLS
-#define _(string) gettext(string)
+#	define _(string) gettext(string)
 #else
-#define _(string) (string)
+#	define _(string) (string)
 #endif
+
 #define THISORNUL(s) (s ? s : "")
 
 #define RESOURCE_PROTOCOL_INFO_VALUES \
@@ -124,9 +138,6 @@
 #define DLNA_FLAG_LOP_BYTES      0x20000000
 #define DLNA_FLAG_LOP_NPT        0x40000000
 
-/* startup time */
-extern time_t startup_time;
-
 extern struct runtime_vars_s runtime_vars;
 /* runtime boolean flags */
 extern uint32_t runtime_flags;
@@ -159,17 +170,15 @@ extern char serialnumber[];
 #define PRESENTATIONURL_MAX_LEN 64
 extern char presentationurl[];
 
-extern char pnpx_hwid[];
+#define FRIENDLYNAME_MAX_LEN 64
+extern char friendly_name[];
 
 /* lan addresses */
 extern int n_lan_addr;
 extern struct lan_addr_s lan_addr[];
-extern int sssdp;
 
 /* UPnP-A/V [DLNA] */
 extern sqlite3 *db;
-#define FRIENDLYNAME_MAX_LEN 64
-extern char friendly_name[];
 extern char db_path[];
 extern char log_path[];
 extern struct media_dir_s *media_dirs;

@@ -129,7 +129,7 @@ static const struct XMLElt rootDesc[] =
 	{"/major", "1"},
 	{"/minor", "0"},
 	{"/deviceType", "urn:schemas-upnp-org:device:MediaServer:1"},
-	{"/pnpx:X_hardwareId", pnpx_hwid},
+	{"/pnpx:X_hardwareId", "VEN_0000&amp;DEV_0000&amp;REV_01 VEN_0033&amp;DEV_0001&amp;REV_01"},
 	{"/pnpx:X_compatibleId", "MS_DigitalMediaDeviceClass_DMS_V001"},
 	{"/pnpx:X_deviceCategory", "MediaDevices"},
 	{"/df:X_deviceCategory", "Multimedia.DMS"},

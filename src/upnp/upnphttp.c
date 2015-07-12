@@ -152,6 +152,91 @@ static void SendResp_resizedimg(struct upnphttp *, char * url);
 static void SendResp_thumbnail(struct upnphttp *, char * url);
 static void SendResp_dlnafile(struct upnphttp *, char * url);
 
+
+
+/* OpenAndConfHTTPSocket() :
+ * setup the socket used to handle incoming HTTP connections. */
+int
+OpenAndConfHTTPSocket(unsigned short port)
+{
+	int s;
+	int i = 1;
+	struct sockaddr_in listenname;
+
+	/* Initialize client type cache */
+	memset(&clients, 0, sizeof(struct client_cache_s));
+
+	s = socket(PF_INET, SOCK_STREAM, 0);
+	if (s < 0)
+	{
+		DPRINTF(E_ERROR, L_GENERAL, "socket(http): %s\n", strerror(errno));
+		return -1;
+	}
+
+	if (setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &i, sizeof(i)) < 0)
+		DPRINTF(E_WARN, L_GENERAL, "setsockopt(http, SO_REUSEADDR): %s\n", strerror(errno));
+
+	memset(&listenname, 0, sizeof(struct sockaddr_in));
+	listenname.sin_family = AF_INET;
+	listenname.sin_port = htons(port);
+	listenname.sin_addr.s_addr = htonl(INADDR_ANY);
+
+	if (bind(s, (struct sockaddr *)&listenname, sizeof(struct sockaddr_in)) < 0)
+	{
+		DPRINTF(E_ERROR, L_GENERAL, "bind(http): %s\n", strerror(errno));
+		close(s);
+		return -1;
+	}
+
+	if (listen(s, 6) < 0)
+	{
+		DPRINTF(E_ERROR, L_GENERAL, "listen(http): %s\n", strerror(errno));
+		close(s);
+		return -1;
+	}
+
+	return s;
+}
+
+struct upnphttp * Accept_upnphttp(int shttpl)
+{
+	int shttp;
+	socklen_t clientnamelen;
+	struct sockaddr_in clientname;
+	struct upnphttp * tmp = 0;
+
+	clientnamelen = sizeof(struct sockaddr_in);
+	shttp = accept(shttpl, (struct sockaddr *)&clientname, &clientnamelen);
+
+	if (shttp<0)
+	{
+		DPRINTF(E_ERROR, L_GENERAL, "accept(http): %s\n", strerror(errno));
+	}
+	else
+	{
+		DPRINTF(E_DEBUG, L_GENERAL, "HTTP connection from %s:%d\n",
+				inet_ntoa(clientname.sin_addr),
+				ntohs(clientname.sin_port) );
+		/*if (fcntl(shttp, F_SETFL, O_NONBLOCK) < 0) {
+            DPRINTF(E_ERROR, L_GENERAL, "fcntl F_SETFL, O_NONBLOCK\n");
+        }*/
+		/* Create a new upnphttp object and add it to
+         * the active upnphttp object list */
+		tmp = New_upnphttp(shttp);
+		if (tmp)
+		{
+			tmp->clientaddr = clientname.sin_addr;
+		}
+		else
+		{
+			DPRINTF(E_ERROR, L_GENERAL, "New_upnphttp() failed\n");
+			close(shttp);
+		}
+	}
+
+	return tmp;
+}
+
 struct upnphttp * 
 New_upnphttp(int s)
 {

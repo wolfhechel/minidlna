@@ -3,6 +3,7 @@ set (SOURCES upnp/upnphttp.c
              upnp/upnpsoap.c
              upnp/minissdp.c
              upnp/upnpevents.c
+             tagutils/tagutils.c
              minidlna.c
              xml.c
              clients.c
@@ -20,8 +21,8 @@ set (SOURCES upnp/upnphttp.c
              log.c
              video_thumb.c
              containers.c
-             tagutils/tagutils.c
-             naturalsort.c)
+             naturalsort.c
+             crypt.c)
 
 set (HEADERS config.h
              libav.h
@@ -94,7 +95,7 @@ configure_file (
     "${CMAKE_CURRENT_BINARY_DIR}/config.h"
 )
 
-add_executable(minidlnad ${SOURCES} ${HEADERS} minidlna.h)
+add_executable(minidlnad ${SOURCES} ${HEADERS})
 
 target_link_libraries (minidlnad ${minidlnad_LIBS})
 

@@ -75,6 +75,15 @@ readoptionsfile(const char * fname);
 void
 freeoptions(void);
 
+int
+strtobool(const char *str);
+
+struct linked_names_s *
+parse_delimited_list_of_options(char * input, const char * delimiter);
+
+void
+add_element_to_linked_list(void **root, void* entry);
+
 #define MAX_OPTION_VALUE_LEN (200)
 struct option
 {

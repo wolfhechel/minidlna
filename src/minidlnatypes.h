@@ -34,29 +34,6 @@
 #include <time.h>
 #include <fcntl.h>
 
-#define MAX_LAN_ADDR 4
-/* structure for storing lan addresses
- * with ascii representation and mask */
-struct lan_addr_s {
-	char str[16];	/* example: 192.168.0.1 */
-	struct in_addr addr;	/* ip */
-	struct in_addr mask;	/* netmask */
-	int snotify;	/* notify socket */
-	unsigned int ifindex;	/* interface index */
-};
-
-struct runtime_vars_s {
-	int port;	/* HTTP Port */
-	int notify_interval;	/* seconds between SSDP announces */
-	int max_connections;	/* max number of simultaneous conenctions */
-	const char *root_container;	/* root ObjectID (instead of "0") */
-	const char *ifaces[MAX_LAN_ADDR];	/* list of configured network interfaces */
-#ifdef ENABLE_VIDEO_THUMB
-	int thumb_width;	/* Video thumbnail width */
-#endif
-	int mta;
-};
-
 struct string_s {
 	char *data; // ptr to start of memory area
 	size_t off;
