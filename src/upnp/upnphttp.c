@@ -64,7 +64,7 @@
 #include <limits.h>
 
 #include "config.h"
-#include "upnpglobalvars.h"
+#include "minidlna.h"
 #include "upnphttp.h"
 #include "upnpdescgen.h"
 #include "minidlnapath.h"

@@ -37,7 +37,7 @@
 #include "libav.h"
 
 #include "scanner_sqlite.h"
-#include "upnpglobalvars.h"
+#include "minidlna.h"
 #include "metadata.h"
 #include "playlist.h"
 #include "utils.h"

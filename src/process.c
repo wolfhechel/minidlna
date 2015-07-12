@@ -38,7 +38,7 @@
 #include <signal.h>
 #include <sys/wait.h>
 
-#include "upnpglobalvars.h"
+#include "minidlna.h"
 #include "process.h"
 #include "config.h"
 #include "log.h"

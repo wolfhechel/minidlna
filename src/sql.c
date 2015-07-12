@@ -20,7 +20,7 @@
 #include <unistd.h>
 
 #include "sql.h"
-#include "upnpglobalvars.h"
+#include "minidlna.h"
 #include "log.h"
 
 int

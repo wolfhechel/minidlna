@@ -60,9 +60,9 @@
 # include <linux/rtnetlink.h>
 # include <linux/netlink.h>
 #endif
-#include "upnpglobalvars.h"
+#include "minidlna.h"
 #include "getifaddr.h"
-#include "minissdp.h"
+#include "upnp/minissdp.h"
 #include "utils.h"
 #include "log.h"
 

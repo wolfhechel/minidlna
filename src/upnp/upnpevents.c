@@ -65,7 +65,7 @@
 
 #include "upnpevents.h"
 #include "minidlnapath.h"
-#include "upnpglobalvars.h"
+#include "minidlna.h"
 #include "upnpdescgen.h"
 #include "utils.h"
 #include "log.h"

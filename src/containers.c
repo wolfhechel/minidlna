@@ -19,7 +19,7 @@
 #include "clients.h"
 #include "minidlnatypes.h"
 #include "scanner.h"
-#include "upnpglobalvars.h"
+#include "minidlna.h"
 #include "containers.h"
 #include "log.h"
 

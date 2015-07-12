@@ -76,23 +76,62 @@
 #include <libintl.h>
 #endif
 
-#include "upnpglobalvars.h"
+#include "minidlna.h"
+#include "upnp/upnphttp.h"
+#include "upnp/upnpdescgen.h"
+#include "upnp/upnpsoap.h"
+#include "upnp/minissdp.h"
+#include "upnp/upnpevents.h"
 #include "sql.h"
 #include "naturalsort.h"
-#include "upnphttp.h"
-#include "upnpdescgen.h"
 #include "minidlnapath.h"
 #include "getifaddr.h"
-#include "upnpsoap.h"
 #include "options.h"
 #include "utils.h"
-#include "minissdp.h"
 #include "minidlnatypes.h"
 #include "process.h"
-#include "upnpevents.h"
 #include "scanner.h"
 #include "inotify.h"
 #include "log.h"
+
+
+
+/* startup time */
+time_t startup_time = 0;
+
+struct runtime_vars_s runtime_vars;
+uint32_t runtime_flags = INOTIFY_MASK;
+
+const char *pidfilename = DEFAULT_RUN_PATH "/minidlna/minidlna.pid";
+
+char uuidvalue[] = "uuid:00000000-0000-0000-0000-000000000000";
+char modelname[MODELNAME_MAX_LEN] = ROOTDEV_MODELNAME;
+char modelnumber[MODELNUMBER_MAX_LEN] = PACKAGE_VERSION;
+char serialnumber[SERIALNUMBER_MAX_LEN] = "00000000";
+#if PNPX
+char pnpx_hwid[] = "VEN_0000&amp;DEV_0000&amp;REV_01 VEN_0033&amp;DEV_0001&amp;REV_01";
+#endif
+
+/* presentation url :
+ * http://nnn.nnn.nnn.nnn:ppppp/  => max 30 bytes including terminating 0 */
+char presentationurl[PRESENTATIONURL_MAX_LEN];
+
+int n_lan_addr = 0;
+struct lan_addr_s lan_addr[MAX_LAN_ADDR];
+int sssdp = -1;
+
+/* UPnP-A/V [DLNA] */
+sqlite3 *db;
+char friendly_name[FRIENDLYNAME_MAX_LEN];
+char db_path[PATH_MAX] = {'\0'};
+char log_path[PATH_MAX] = {'\0'};
+struct media_dir_s * media_dirs = NULL;
+struct linked_names_s * album_art_names = NULL;
+struct linked_names_s * ignore_paths = NULL;
+short int scanning = 0;
+volatile short int quitting = 0;
+volatile uint32_t updateID = 0;
+const char *force_sort_criteria = NULL;
 
 #if SQLITE_VERSION_NUMBER < 3005001
 # warning "Your SQLite3 library appears to be too old!  Please use 3.5.1 or newer."

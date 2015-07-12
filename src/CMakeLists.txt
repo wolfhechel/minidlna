@@ -1,16 +1,15 @@
-set (SOURCES minidlna.c
-             upnphttp.c
-             upnpdescgen.c
-             upnpsoap.c
-             upnpreplyparse.c
+set (SOURCES upnp/upnphttp.c
+             upnp/upnpdescgen.c
+             upnp/upnpsoap.c
+             upnp/upnpreplyparse.c
+             upnp/minissdp.c
+             upnp/upnpevents.c
+             minidlna.c
              minixml.c
              clients.c
              getifaddr.c
              process.c
-             upnpglobalvars.c
              options.c
-             minissdp.c
-             upnpevents.c
              sql.c
              utils.c
              metadata.c
@@ -96,7 +95,7 @@ configure_file (
     "${CMAKE_CURRENT_BINARY_DIR}/config.h"
 )
 
-add_executable(minidlnad ${SOURCES} ${HEADERS})
+add_executable(minidlnad ${SOURCES} ${HEADERS} minidlna.h)
 
 target_link_libraries (minidlnad ${minidlnad_LIBS})
 

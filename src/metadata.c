@@ -33,10 +33,10 @@
 #include <setjmp.h>
 #include "libav.h"
 
-#include "upnpglobalvars.h"
+#include "minidlna.h"
 #include "tagutils/tagutils.h"
 #include "image_utils.h"
-#include "upnpreplyparse.h"
+#include "upnp/upnpreplyparse.h"
 #include "metadata.h"
 #include "albumart.h"
 #include "utils.h"

@@ -72,7 +72,7 @@
 #endif
 #endif
 
-#include "upnpglobalvars.h"
+#include "minidlna.h"
 #include "image_utils.h"
 #include "libav.h"
 #include "log.h"

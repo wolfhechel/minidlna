@@ -61,7 +61,7 @@
 #include <netdb.h>
 #include <ctype.h>
 
-#include "upnpglobalvars.h"
+#include "minidlna.h"
 #include "utils.h"
 #include "upnphttp.h"
 #include "upnpsoap.h"

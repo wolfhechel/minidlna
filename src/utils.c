@@ -31,7 +31,7 @@
 #include <errno.h>
 
 #include "minidlnatypes.h"
-#include "upnpglobalvars.h"
+#include "minidlna.h"
 #include "utils.h"
 #include "log.h"
 

@@ -25,7 +25,7 @@
 #include <string.h>
 #include <time.h>
 
-#include "upnpglobalvars.h"
+#include "minidlna.h"
 #include "log.h"
 
 static FILE *log_fp = NULL;

@@ -44,7 +44,7 @@
 
 #include "minidlnapath.h"
 #include "upnphttp.h"
-#include "upnpglobalvars.h"
+#include "minidlna.h"
 #include "upnpreplyparse.h"
 #include "getifaddr.h"
 #include "minissdp.h"

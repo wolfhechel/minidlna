@@ -32,7 +32,7 @@
 
 #include <jpeglib.h>
 
-#include "upnpglobalvars.h"
+#include "minidlna.h"
 #include "albumart.h"
 #include "sql.h"
 #include "utils.h"

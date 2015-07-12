@@ -29,7 +29,7 @@
 
 #include "tagutils/tagutils.h"
 
-#include "upnpglobalvars.h"
+#include "minidlna.h"
 #include "scanner.h"
 #include "metadata.h"
 #include "utils.h"

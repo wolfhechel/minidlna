@@ -30,7 +30,7 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 */
 #include "minixml.h"
-#include "upnpreplyparse.h"
+#include "upnp/upnpreplyparse.h"
 
 /* parseatt : used to parse the argument list
  * return 0 (false) in case of success and -1 (true) if the end

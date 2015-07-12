@@ -33,7 +33,7 @@
 #include <ctype.h>
 #include "options.h"
 #include "utils.h"
-#include "upnpglobalvars.h"
+#include "minidlna.h"
 
 struct option * ary_options = NULL;
 int num_options = 0;
