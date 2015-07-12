@@ -108,9 +108,7 @@ char uuidvalue[] = "uuid:00000000-0000-0000-0000-000000000000";
 char modelname[MODELNAME_MAX_LEN] = ROOTDEV_MODELNAME;
 char modelnumber[MODELNUMBER_MAX_LEN] = PACKAGE_VERSION;
 char serialnumber[SERIALNUMBER_MAX_LEN] = "00000000";
-#if PNPX
 char pnpx_hwid[] = "VEN_0000&amp;DEV_0000&amp;REV_01 VEN_0033&amp;DEV_0001&amp;REV_01";
-#endif
 
 /* presentation url :
  * http://nnn.nnn.nnn.nnn:ppppp/  => max 30 bytes including terminating 0 */
@@ -238,69 +236,6 @@ getfriendlyname(char *buf, int len)
 
 	off = strlen(buf);
 	off += snprintf(buf+off, len-off, ": ");
-#ifdef READYNAS
-	FILE *info;
-	char ibuf[64], *key, *val;
-	snprintf(buf+off, len-off, "ReadyNAS");
-	info = fopen("/proc/sys/dev/boot/info", "r");
-	if (!info)
-		return;
-	while ((val = fgets(ibuf, 64, info)) != NULL)
-	{
-		key = strsep(&val, ": \t");
-		val = trim(val);
-		if (strcmp(key, "model") == 0)
-		{
-			snprintf(buf+off, len-off, "%s", val);
-			key = strchr(val, ' ');
-			if (key)
-			{
-				strncpyt(modelnumber, key+1, MODELNUMBER_MAX_LEN);
-				*key = '\0';
-			}
-			snprintf(modelname, MODELNAME_MAX_LEN,
-				"Windows Media Connect compatible (%s)", val);
-		}
-		else if (strcmp(key, "serial") == 0)
-		{
-			strncpyt(serialnumber, val, SERIALNUMBER_MAX_LEN);
-			if (serialnumber[0] == '\0')
-			{
-				char mac_str[13];
-				if (getsyshwaddr(mac_str, sizeof(mac_str)) == 0)
-					strcpy(serialnumber, mac_str);
-				else
-					strcpy(serialnumber, "0");
-			}
-			break;
-		}
-	}
-	fclose(info);
-#if PNPX
-	memcpy(pnpx_hwid+4, "01F2", 4);
-	if (strcmp(modelnumber, "NVX") == 0)
-		memcpy(pnpx_hwid+17, "0101", 4);
-	else if (strcmp(modelnumber, "Pro") == 0 ||
-	         strcmp(modelnumber, "Pro 6") == 0 ||
-	         strncmp(modelnumber, "Ultra 6", 7) == 0)
-		memcpy(pnpx_hwid+17, "0102", 4);
-	else if (strcmp(modelnumber, "Pro 2") == 0 ||
-	         strncmp(modelnumber, "Ultra 2", 7) == 0)
-		memcpy(pnpx_hwid+17, "0103", 4);
-	else if (strcmp(modelnumber, "Pro 4") == 0 ||
-	         strncmp(modelnumber, "Ultra 4", 7) == 0)
-		memcpy(pnpx_hwid+17, "0104", 4);
-	else if (strcmp(modelnumber+1, "100") == 0)
-		memcpy(pnpx_hwid+17, "0105", 4);
-	else if (strcmp(modelnumber+1, "200") == 0)
-		memcpy(pnpx_hwid+17, "0106", 4);
-	/* 0107 = Stora */
-	else if (strcmp(modelnumber, "Duo v2") == 0)
-		memcpy(pnpx_hwid+17, "0108", 4);
-	else if (strcmp(modelnumber, "NV+ v2") == 0)
-		memcpy(pnpx_hwid+17, "0109", 4);
-#endif
-#else
 	char * logname;
 	logname = getenv("LOGNAME");
 #ifndef STATIC // Disable for static linking
@@ -313,7 +248,6 @@ getfriendlyname(char *buf, int len)
 	}
 #endif
 	snprintf(buf+off, len-off, "%s", logname?logname:"Unknown");
-#endif
 }
 
 static int

@@ -1619,7 +1619,6 @@ GetVideoMetadata(const char *path, char *name, const char *parentID)
 			}
 		}
 	}
-	#ifndef NETGEAR
 	#if LIBAVFORMAT_VERSION_INT >= ((52<<16)+(31<<8)+0)
 	else if( strcmp(ctx->iformat->name, "mov,mp4,m4a,3gp,3g2,mj2") == 0 )
 	{
@@ -1642,7 +1641,6 @@ GetVideoMetadata(const char *path, char *name, const char *parentID)
 			}
 		}
 	}
-	#endif
 	#endif
 video_no_dlna:
 

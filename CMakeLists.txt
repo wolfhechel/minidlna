@@ -44,8 +44,6 @@ set (DEFAULT_GROUP "minidlna" CACHE STRING "Default group to run as")
 
 set (SYSTEMD_LIB_DIR "${CMAKE_INSTALL_FULL_LIBDIR}" CACHE PATH "systemd library path")
 
-option (NETGEAR "enable generic NETGEAR device support" OFF)
-option (READYNAS "enable NETGEAR ReadyNAS support" OFF)
 option (ENABLE_VIDEO_THUMB "enable video thumbnail generation using libavcodec and libswscale" OFF)
 
 option (ENABLE_SYSTEMD "enable systemd support" ON)
@@ -56,16 +54,7 @@ endif ()
 
 if (READYNAS)
     set (NETGEAR ON)
-    set (PNPX 5)
-    set (TIVO_SUPPORT ON)
     set (OS_URL "http://www.readynas.com/")
-endif()
-
-if (NETGEAR)
-    set (ROOTDEV_MANUFACTURERURL "http://www.netgear.com/")
-    set (ROOTDEV_MANUFACTURER "NETGEAR")
-    set (ROOTDEV_MODELNAME "Windows Media Connect compatible (ReadyDLNA)")
-    set (ROOTDEV_MODELDESCRIPTION "ReadyDLNA")
 endif()
 
 add_subdirectory (po)

@@ -13,11 +13,7 @@
 
 #include <sqlite3.h>
 
-#ifdef NETGEAR
-# define SERVER_NAME "ReadyDLNA"
-#else
-# define SERVER_NAME "MiniDLNA"
-#endif
+#define SERVER_NAME "MiniDLNA"
 
 #define DB_VERSION 11
 
@@ -27,10 +23,6 @@
 #define _(string) (string)
 #endif
 #define THISORNUL(s) (s ? s : "")
-
-#ifndef PNPX
-#define PNPX 0
-#endif
 
 #define RESOURCE_PROTOCOL_INFO_VALUES \
 	"http-get:*:image/jpeg:DLNA.ORG_PN=JPEG_TN," \
@@ -167,9 +159,7 @@ extern char serialnumber[];
 #define PRESENTATIONURL_MAX_LEN 64
 extern char presentationurl[];
 
-#if PNPX
 extern char pnpx_hwid[];
-#endif
 
 /* lan addresses */
 extern int n_lan_addr;
