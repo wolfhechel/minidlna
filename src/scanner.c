@@ -39,7 +39,6 @@
 #include "scanner_sqlite.h"
 #include "minidlna.h"
 #include "metadata.h"
-#include "playlist.h"
 #include "utils.h"
 #include "sql.h"
 #include "scanner.h"
@@ -544,11 +543,6 @@ insert_file(char *name, const char *path, const char *parentID, int object, medi
 		if( !detailID )
 			strcpy(name, orig_name);
 	}
-	else if( is_playlist(name) )
-	{
-		if( insert_playlist(path, name) == 0 )
-			return 1;
-	}
 	if( !detailID && (types & TYPE_AUDIO) && is_audio(name) )
 	{
 		strcpy(base, MUSIC_DIR_ID);
@@ -793,8 +787,7 @@ filter_a(scan_filter *d)
 	return (filter_hidden(d) && filter_ignored(d) &&
 	         (filter_type(d) ||
 		  (is_reg(d) &&
-		   (is_audio(d->d_name) ||
-	            is_playlist(d->d_name))))
+		   is_audio(d->d_name)))
 	       );
 }
 
@@ -805,8 +798,7 @@ filter_av(scan_filter *d)
 	         (filter_type(d) ||
 		  (is_reg(d) &&
 		   (is_audio(d->d_name) ||
-		    is_video(d->d_name) ||
-	            is_playlist(d->d_name))))
+		    is_video(d->d_name))))
 	       );
 }
 
@@ -817,8 +809,7 @@ filter_ap(scan_filter *d)
 	         (filter_type(d) ||
 		  (is_reg(d) &&
 		   (is_audio(d->d_name) ||
-		    is_image(d->d_name) ||
-	            is_playlist(d->d_name))))
+		    is_image(d->d_name))))
 	       );
 }
 
@@ -861,8 +852,7 @@ filter_avp(scan_filter *d)
 		  (is_reg(d) &&
 		   (is_audio(d->d_name) ||
 		    is_image(d->d_name) ||
-		    is_video(d->d_name) ||
-	            is_playlist(d->d_name))))
+		    is_video(d->d_name))))
 	       );
 }
 
@@ -1093,15 +1083,6 @@ start_scanner()
 	 * This index is very useful for large libraries used with an XBox360 (or any
 	 * client that uses UPnPSearch on large containers). */
 	sql_exec(db, "create INDEX IDX_SEARCH_OPT ON OBJECTS(OBJECT_ID, CLASS, DETAIL_ID);");
-
-	if( GETFLAG(NO_PLAYLIST_MASK) )
-	{
-		DPRINTF(E_WARN, L_SCANNER, "Playlist creation disabled\n");	  
-	}
-	else
-	{
-		fill_playlists();
-	}
 
 	GenerateMTA(NULL);
 

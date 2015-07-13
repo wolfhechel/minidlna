@@ -472,12 +472,6 @@ is_image(const char * file)
 }
 
 int
-is_playlist(const char * file)
-{
-	return (ends_with(file, ".m3u") || ends_with(file, ".pls"));
-}
-
-int
 is_caption(const char * file)
 {
 	return (ends_with(file, ".srt") || ends_with(file, ".smi"));
@@ -542,13 +536,11 @@ resolve_unknown_type(const char * path, media_types dir_type)
 				case ALL_MEDIA:
 					if( is_image(path) ||
 					    is_audio(path) ||
-					    is_video(path) ||
-					    is_playlist(path) )
+					    is_video(path) )
 						type = TYPE_FILE;
 					break;
 				case TYPE_AUDIO:
-					if( is_audio(path) ||
-					    is_playlist(path) )
+					if( is_audio(path) )
 						type = TYPE_FILE;
 					break;
 				case TYPE_VIDEO:

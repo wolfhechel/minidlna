@@ -94,8 +94,6 @@ static void init_nls(void) {
 struct runtime_vars_s runtime_vars;
 uint32_t runtime_flags = INOTIFY_MASK;
 
-const char *pidfilename = DEFAULT_RUN_PATH "/minidlna/minidlna.pid";
-
 char uuidvalue[] = "uuid:00000000-0000-0000-0000-000000000000";
 char modelname[MODELNAME_MAX_LEN] = ROOTDEV_MODELNAME;
 char modelnumber[MODELNUMBER_MAX_LEN] = PACKAGE_VERSION;
@@ -185,16 +183,8 @@ getfriendlyname(char *buf, int len)
 	snprintf(buf+off, len-off, "%s", logname?logname:"Unknown");
 }
 
-/* init phase :
- * 1) read configuration file
- * 2) read command line arguments
- * 3) daemonize
- * 4) check and write pid file
- * 5) set startup time stamp
- * 6) compute presentation URL
- * 7) set signal handlers */
-static int
-init(int argc, char **argv)
+int
+main(int argc, char **argv)
 {
 	int i;
 	int pid;
@@ -203,6 +193,8 @@ init(int argc, char **argv)
 	int options_flag = 0;
 	struct sigaction sa;
 	const char * optionsfile = DEFAULT_CONF_PATH;
+	const char *pidfilename = DEFAULT_RUN_PATH "/minidlna/minidlna.pid";
+
 	char mac_str[13];
 	char *string, *word;
 	char *path;
@@ -211,6 +203,31 @@ init(int argc, char **argv)
 	char *log_level = NULL;
 	int ifaces = 0;
 	uid_t uid = 0;
+	int ret;
+	int shttpl = -1;
+	int smonitor = -1;
+
+	LIST_HEAD(httplisthead, upnphttp) upnphttphead;
+
+	struct upnphttp * e = 0,
+			        * next,
+			        * tmp;
+
+	fd_set readset,
+		   writeset;	/* for select() */
+
+	struct timeval timeout,
+			       timeofday,
+			       lastnotifytime = {0, 0};
+
+	time_t lastupdatetime = 0;
+
+	int max_fd = -1,
+		last_changecnt = 0;
+
+	pid_t scanner_pid = 0;
+
+	pthread_t inotify_thread = 0;
 
 	/* first check if "-f" option is used */
 	for (i=2; i<argc; i++)
@@ -233,7 +250,7 @@ init(int argc, char **argv)
 	strncat(uuidvalue, mac_str, 12);
 
 	getfriendlyname(friendly_name, FRIENDLYNAME_MAX_LEN);
-	
+
 	runtime_vars.port = 8200;
 	runtime_vars.notify_interval = 895;	/* seconds between SSDP announces */
 	runtime_vars.max_connections = 50;
@@ -258,179 +275,179 @@ init(int argc, char **argv)
 	{
 		switch (ary_options[i].id)
 		{
-		case UPNPIFNAME:
-			for (string = ary_options[i].value; (word = strtok(string, ",")); string = NULL)
-			{
-				if (ifaces >= MAX_LAN_ADDR)
+			case UPNPIFNAME:
+				for (string = ary_options[i].value; (word = strtok(string, ",")); string = NULL)
 				{
-					DPRINTF(E_ERROR, L_GENERAL, "Too many interfaces (max: %d), ignoring %s\n",
-						MAX_LAN_ADDR, word);
-					break;
-				}
-				runtime_vars.ifaces[ifaces++] = word;
-			}
-			break;
-		case UPNPPORT:
-			runtime_vars.port = atoi(ary_options[i].value);
-			break;
-		case UPNPNOTIFY_INTERVAL:
-			runtime_vars.notify_interval = atoi(ary_options[i].value);
-			break;
-		case UPNPSERIAL:
-			strncpyt(serialnumber, ary_options[i].value, SERIALNUMBER_MAX_LEN);
-			break;
-		case UPNPMODEL_NAME:
-			strncpyt(modelname, ary_options[i].value, MODELNAME_MAX_LEN);
-			break;
-		case UPNPMODEL_NUMBER:
-			strncpyt(modelnumber, ary_options[i].value, MODELNUMBER_MAX_LEN);
-			break;
-		case UPNPFRIENDLYNAME:
-			strncpyt(friendly_name, ary_options[i].value, FRIENDLYNAME_MAX_LEN);
-			break;
-		case UPNPMEDIADIR: {
-			struct media_dir_s *media_dir;
-			media_types types = ALL_MEDIA;
-			path = ary_options[i].value;
-			word = strchr(path, ',');
-			if (word && (access(path, F_OK) != 0))
-			{
-				types = 0;
-				while (*path)
-				{
-					if (*path == ',')
+					if (ifaces >= MAX_LAN_ADDR)
 					{
-						path++;
+						DPRINTF(E_ERROR, L_GENERAL, "Too many interfaces (max: %d), ignoring %s\n",
+								MAX_LAN_ADDR, word);
 						break;
 					}
-					else if (*path == 'A' || *path == 'a')
-						types |= TYPE_AUDIO;
-					else if (*path == 'V' || *path == 'v')
-						types |= TYPE_VIDEO;
-					else if (*path == 'P' || *path == 'p')
-						types |= TYPE_IMAGES;
-					else
-						DPRINTF(E_FATAL, L_GENERAL, "Media directory entry not understood [%s]\n",
-							ary_options[i].value);
-					path++;
+					runtime_vars.ifaces[ifaces++] = word;
 				}
-			}
-			path = realpath(path, buf);
-			if (!path || access(path, F_OK) != 0)
-			{
-				DPRINTF(E_ERROR, L_GENERAL, "Media directory \"%s\" not accessible [%s]\n",
-					ary_options[i].value, strerror(errno));
 				break;
-			}
-			media_dir = calloc(1, sizeof(struct media_dir_s));
-			media_dir->path = strdup(path);
-			media_dir->types = types;
-			add_element_to_linked_list((void**)&media_dirs, media_dir);
-		} break;
-		case UPNPALBUMART_NAMES: {
-			struct linked_names_s *album_art_name = parse_delimited_list_of_options(ary_options[i].value, "/");
-			add_element_to_linked_list((void**)&album_art_names, album_art_name);
-		} break;
-		case SCANNER_IGNORE: {
-			struct linked_names_s *ignore_path = parse_delimited_list_of_options(ary_options[i].value, "/");
-			add_element_to_linked_list((void**)&ignore_paths, ignore_path);
-		} break;
-		case UPNPDBDIR:
-			path = realpath(ary_options[i].value, buf);
-			if (!path)
-				path = (ary_options[i].value);
-			make_dir(path, S_ISVTX|S_IRWXU|S_IRWXG|S_IRWXO);
-			if (access(path, F_OK) != 0)
-				DPRINTF(E_FATAL, L_GENERAL, "Database path not accessible! [%s]\n", path);
-			strncpyt(db_path, path, PATH_MAX);
-			break;
-		case UPNPLOGDIR:
-			path = realpath(ary_options[i].value, buf);
-			if (!path)
-				path = (ary_options[i].value);
-			make_dir(path, S_ISVTX|S_IRWXU|S_IRWXG|S_IRWXO);
-			if (access(path, F_OK) != 0)
-				DPRINTF(E_FATAL, L_GENERAL, "Log path not accessible! [%s]\n", path);
-			strncpyt(log_path, path, PATH_MAX);
-			break;
-		case UPNPLOGLEVEL:
-			log_level = ary_options[i].value;
-			break;
-		case UPNPINOTIFY:
-			if (!strtobool(ary_options[i].value))
-				CLEARFLAG(INOTIFY_MASK);
-			break;
-		case ENABLE_DLNA_STRICT:
-			if (strtobool(ary_options[i].value))
-				SETFLAG(DLNA_STRICT_MASK);
-			break;
-		case ROOT_CONTAINER:
-			switch (ary_options[i].value[0]) {
-			case '.':
-				runtime_vars.root_container = NULL;
+			case UPNPPORT:
+				runtime_vars.port = atoi(ary_options[i].value);
 				break;
-			case 'B':
-			case 'b':
-				runtime_vars.root_container = BROWSEDIR_ID;
+			case UPNPNOTIFY_INTERVAL:
+				runtime_vars.notify_interval = atoi(ary_options[i].value);
 				break;
-			case 'M':
-			case 'm':
-				runtime_vars.root_container = MUSIC_ID;
+			case UPNPSERIAL:
+				strncpyt(serialnumber, ary_options[i].value, SERIALNUMBER_MAX_LEN);
 				break;
-			case 'V':
-			case 'v':
-				runtime_vars.root_container = VIDEO_ID;
+			case UPNPMODEL_NAME:
+				strncpyt(modelname, ary_options[i].value, MODELNAME_MAX_LEN);
 				break;
-			case 'P':
-			case 'p':
-				runtime_vars.root_container = IMAGE_ID;
+			case UPNPMODEL_NUMBER:
+				strncpyt(modelnumber, ary_options[i].value, MODELNUMBER_MAX_LEN);
+				break;
+			case UPNPFRIENDLYNAME:
+				strncpyt(friendly_name, ary_options[i].value, FRIENDLYNAME_MAX_LEN);
+				break;
+			case UPNPMEDIADIR: {
+				struct media_dir_s *media_dir;
+				media_types types = ALL_MEDIA;
+				path = ary_options[i].value;
+				word = strchr(path, ',');
+				if (word && (access(path, F_OK) != 0))
+				{
+					types = 0;
+					while (*path)
+					{
+						if (*path == ',')
+						{
+							path++;
+							break;
+						}
+						else if (*path == 'A' || *path == 'a')
+							types |= TYPE_AUDIO;
+						else if (*path == 'V' || *path == 'v')
+							types |= TYPE_VIDEO;
+						else if (*path == 'P' || *path == 'p')
+							types |= TYPE_IMAGES;
+						else
+							DPRINTF(E_FATAL, L_GENERAL, "Media directory entry not understood [%s]\n",
+									ary_options[i].value);
+						path++;
+					}
+				}
+				path = realpath(path, buf);
+				if (!path || access(path, F_OK) != 0)
+				{
+					DPRINTF(E_ERROR, L_GENERAL, "Media directory \"%s\" not accessible [%s]\n",
+							ary_options[i].value, strerror(errno));
+					break;
+				}
+				media_dir = calloc(1, sizeof(struct media_dir_s));
+				media_dir->path = strdup(path);
+				media_dir->types = types;
+				add_element_to_linked_list((void**)&media_dirs, media_dir);
+			} break;
+			case UPNPALBUMART_NAMES: {
+				struct linked_names_s *album_art_name = parse_delimited_list_of_options(ary_options[i].value, "/");
+				add_element_to_linked_list((void**)&album_art_names, album_art_name);
+			} break;
+			case SCANNER_IGNORE: {
+				struct linked_names_s *ignore_path = parse_delimited_list_of_options(ary_options[i].value, "/");
+				add_element_to_linked_list((void**)&ignore_paths, ignore_path);
+			} break;
+			case UPNPDBDIR:
+				path = realpath(ary_options[i].value, buf);
+				if (!path)
+					path = (ary_options[i].value);
+				make_dir(path, S_ISVTX|S_IRWXU|S_IRWXG|S_IRWXO);
+				if (access(path, F_OK) != 0)
+					DPRINTF(E_FATAL, L_GENERAL, "Database path not accessible! [%s]\n", path);
+				strncpyt(db_path, path, PATH_MAX);
+				break;
+			case UPNPLOGDIR:
+				path = realpath(ary_options[i].value, buf);
+				if (!path)
+					path = (ary_options[i].value);
+				make_dir(path, S_ISVTX|S_IRWXU|S_IRWXG|S_IRWXO);
+				if (access(path, F_OK) != 0)
+					DPRINTF(E_FATAL, L_GENERAL, "Log path not accessible! [%s]\n", path);
+				strncpyt(log_path, path, PATH_MAX);
+				break;
+			case UPNPLOGLEVEL:
+				log_level = ary_options[i].value;
+				break;
+			case UPNPINOTIFY:
+				if (!strtobool(ary_options[i].value))
+					CLEARFLAG(INOTIFY_MASK);
+				break;
+			case ENABLE_DLNA_STRICT:
+				if (strtobool(ary_options[i].value))
+					SETFLAG(DLNA_STRICT_MASK);
+				break;
+			case ROOT_CONTAINER:
+				switch (ary_options[i].value[0]) {
+					case '.':
+						runtime_vars.root_container = NULL;
+						break;
+					case 'B':
+					case 'b':
+						runtime_vars.root_container = BROWSEDIR_ID;
+						break;
+					case 'M':
+					case 'm':
+						runtime_vars.root_container = MUSIC_ID;
+						break;
+					case 'V':
+					case 'v':
+						runtime_vars.root_container = VIDEO_ID;
+						break;
+					case 'P':
+					case 'p':
+						runtime_vars.root_container = IMAGE_ID;
+						break;
+					default:
+						runtime_vars.root_container = ary_options[i].value;
+						DPRINTF(E_WARN, L_GENERAL, "Using arbitrary root container [%s]\n",
+								ary_options[i].value);
+						break;
+				}
+				break;
+			case UPNPUUID:
+				strcpy(uuidvalue+5, ary_options[i].value);
+				break;
+			case USER_ACCOUNT:
+				uid = strtoul(ary_options[i].value, &string, 0);
+				if (*string)
+				{
+					/* Symbolic username given, not UID. */
+					struct passwd *entry = getpwnam(ary_options[i].value);
+					if (!entry)
+						DPRINTF(E_FATAL, L_GENERAL, "Bad user '%s'.\n", argv[i]);
+					uid = entry->pw_uid;
+				}
+				break;
+			case FORCE_SORT_CRITERIA:
+				force_sort_criteria = ary_options[i].value;
+				break;
+			case MAX_CONNECTIONS:
+				runtime_vars.max_connections = atoi(ary_options[i].value);
+				break;
+			case MERGE_MEDIA_DIRS:
+				if (strtobool(ary_options[i].value))
+					SETFLAG(MERGE_MEDIA_DIRS_MASK);
+				break;
+#ifdef ENABLE_VIDEO_THUMB
+			case ENABLE_THUMB:
+				if( (strcmp(ary_options[i].value, "yes") == 0) || atoi(ary_options[i].value) )
+					SETFLAG(THUMB_MASK);
+				break;
+			case THUMB_WIDTH:
+				runtime_vars.thumb_width = atoi(ary_options[i].value);
+				break;
+#endif
+			case ENABLE_MTA:
+				runtime_vars.mta = atoi(ary_options[i].value);
 				break;
 			default:
-				runtime_vars.root_container = ary_options[i].value;
-				DPRINTF(E_WARN, L_GENERAL, "Using arbitrary root container [%s]\n",
-					ary_options[i].value);
-				break;
-			}
-			break;
-		case UPNPUUID:
-			strcpy(uuidvalue+5, ary_options[i].value);
-			break;
-		case USER_ACCOUNT:
-			uid = strtoul(ary_options[i].value, &string, 0);
-			if (*string)
-			{
-				/* Symbolic username given, not UID. */
-				struct passwd *entry = getpwnam(ary_options[i].value);
-				if (!entry)
-					DPRINTF(E_FATAL, L_GENERAL, "Bad user '%s'.\n", argv[i]);
-				uid = entry->pw_uid;
-			}
-			break;
-		case FORCE_SORT_CRITERIA:
-			force_sort_criteria = ary_options[i].value;
-			break;
-		case MAX_CONNECTIONS:
-			runtime_vars.max_connections = atoi(ary_options[i].value);
-			break;
-		case MERGE_MEDIA_DIRS:
-			if (strtobool(ary_options[i].value))
-				SETFLAG(MERGE_MEDIA_DIRS_MASK);
-			break;
-#ifdef ENABLE_VIDEO_THUMB
-		case ENABLE_THUMB:
-			if( (strcmp(ary_options[i].value, "yes") == 0) || atoi(ary_options[i].value) )
-				SETFLAG(THUMB_MASK);
-			break;
-		case THUMB_WIDTH:
-			runtime_vars.thumb_width = atoi(ary_options[i].value);
-			break;
-#endif
-		case ENABLE_MTA:
-			runtime_vars.mta = atoi(ary_options[i].value);
-			break;
-		default:
-			DPRINTF(E_ERROR, L_GENERAL, "Unknown option in file %s\n",
-				optionsfile);
+				DPRINTF(E_ERROR, L_GENERAL, "Unknown option in file %s\n",
+						optionsfile);
 		}
 	}
 	if (log_path[0] == '\0')
@@ -456,133 +473,129 @@ init(int argc, char **argv)
 			break;
 		}
 		else switch(argv[i][1])
-		{
-		case 't':
-			if (i+1 < argc)
-				runtime_vars.notify_interval = atoi(argv[++i]);
-			else
-				DPRINTF(E_FATAL, L_GENERAL, "Option -%c takes one argument.\n", argv[i][1]);
-			break;
-		case 's':
-			if (i+1 < argc)
-				strncpyt(serialnumber, argv[++i], SERIALNUMBER_MAX_LEN);
-			else
-				DPRINTF(E_FATAL, L_GENERAL, "Option -%c takes one argument.\n", argv[i][1]);
-			break;
-		case 'm':
-			if (i+1 < argc)
-				strncpyt(modelnumber, argv[++i], MODELNUMBER_MAX_LEN);
-			else
-				DPRINTF(E_FATAL, L_GENERAL, "Option -%c takes one argument.\n", argv[i][1]);
-			break;
-		case 'p':
-			if (i+1 < argc)
-				runtime_vars.port = atoi(argv[++i]);
-			else
-				DPRINTF(E_FATAL, L_GENERAL, "Option -%c takes one argument.\n", argv[i][1]);
-			break;
-		case 'P':
-			if (i+1 < argc)
 			{
-				if (argv[++i][0] != '/')
-					DPRINTF(E_FATAL, L_GENERAL, "Option -%c requires an absolute filename.\n", argv[i-1][1]);
-				else
-					pidfilename = argv[i];
-			}
-			else
-				DPRINTF(E_FATAL, L_GENERAL, "Option -%c takes one argument.\n", argv[i][1]);
-			break;
-		case 'd':
-			debug_flag = 1;
-		case 'v':
-			verbose_flag = 1;
-			break;
-		case 'L':
-			SETFLAG(NO_PLAYLIST_MASK);
-			break;
-		case 'i':
-			if (i+1 < argc)
-			{
-				i++;
-				if (ifaces >= MAX_LAN_ADDR)
-				{
-					DPRINTF(E_ERROR, L_GENERAL, "Too many interfaces (max: %d), ignoring %s\n",
-						MAX_LAN_ADDR, argv[i]);
+				case 't':
+					if (i+1 < argc)
+						runtime_vars.notify_interval = atoi(argv[++i]);
+					else
+						DPRINTF(E_FATAL, L_GENERAL, "Option -%c takes one argument.\n", argv[i][1]);
 					break;
-				}
-				runtime_vars.ifaces[ifaces++] = argv[i];
-			}
-			else
-				DPRINTF(E_FATAL, L_GENERAL, "Option -%c takes one argument.\n", argv[i][1]);
-			break;
-		case 'f':
-			i++;	/* discarding, the config file is already read */
-			break;
-		case 'h':
-			runtime_vars.port = -1; // triggers help display
-			break;
-		case 'R':
-			snprintf(buf, sizeof(buf), "rm -rf %s/files.db %s/art_cache", db_path, db_path);
-			if (system(buf) != 0)
-				DPRINTF(E_FATAL, L_GENERAL, "Failed to clean old file cache. EXITING\n");
-			break;
-		case 'u':
-			if (i+1 != argc)
-			{
-				i++;
-				uid = strtoul(argv[i], &string, 0);
-				if (*string)
-				{
-					/* Symbolic username given, not UID. */
-					struct passwd *entry = getpwnam(argv[i]);
-					if (!entry)
-						DPRINTF(E_FATAL, L_GENERAL, "Bad user '%s'.\n", argv[i]);
-					uid = entry->pw_uid;
-				}
-			}
-			else
-				DPRINTF(E_FATAL, L_GENERAL, "Option -%c takes one argument.\n", argv[i][1]);
-			break;
-			break;
+				case 's':
+					if (i+1 < argc)
+						strncpyt(serialnumber, argv[++i], SERIALNUMBER_MAX_LEN);
+					else
+						DPRINTF(E_FATAL, L_GENERAL, "Option -%c takes one argument.\n", argv[i][1]);
+					break;
+				case 'm':
+					if (i+1 < argc)
+						strncpyt(modelnumber, argv[++i], MODELNUMBER_MAX_LEN);
+					else
+						DPRINTF(E_FATAL, L_GENERAL, "Option -%c takes one argument.\n", argv[i][1]);
+					break;
+				case 'p':
+					if (i+1 < argc)
+						runtime_vars.port = atoi(argv[++i]);
+					else
+						DPRINTF(E_FATAL, L_GENERAL, "Option -%c takes one argument.\n", argv[i][1]);
+					break;
+				case 'P':
+					if (i+1 < argc)
+					{
+						if (argv[++i][0] != '/')
+							DPRINTF(E_FATAL, L_GENERAL, "Option -%c requires an absolute filename.\n", argv[i-1][1]);
+						else
+							pidfilename = argv[i];
+					}
+					else
+						DPRINTF(E_FATAL, L_GENERAL, "Option -%c takes one argument.\n", argv[i][1]);
+					break;
+				case 'd':
+					debug_flag = 1;
+				case 'v':
+					verbose_flag = 1;
+					break;
+				case 'i':
+					if (i+1 < argc)
+					{
+						i++;
+						if (ifaces >= MAX_LAN_ADDR)
+						{
+							DPRINTF(E_ERROR, L_GENERAL, "Too many interfaces (max: %d), ignoring %s\n",
+									MAX_LAN_ADDR, argv[i]);
+							break;
+						}
+						runtime_vars.ifaces[ifaces++] = argv[i];
+					}
+					else
+						DPRINTF(E_FATAL, L_GENERAL, "Option -%c takes one argument.\n", argv[i][1]);
+					break;
+				case 'f':
+					i++;	/* discarding, the config file is already read */
+					break;
+				case 'h':
+					runtime_vars.port = -1; // triggers help display
+					break;
+				case 'R':
+					snprintf(buf, sizeof(buf), "rm -rf %s/files.db %s/art_cache", db_path, db_path);
+					if (system(buf) != 0)
+						DPRINTF(E_FATAL, L_GENERAL, "Failed to clean old file cache. EXITING\n");
+					break;
+				case 'u':
+					if (i+1 != argc)
+					{
+						i++;
+						uid = strtoul(argv[i], &string, 0);
+						if (*string)
+						{
+							/* Symbolic username given, not UID. */
+							struct passwd *entry = getpwnam(argv[i]);
+							if (!entry)
+								DPRINTF(E_FATAL, L_GENERAL, "Bad user '%s'.\n", argv[i]);
+							uid = entry->pw_uid;
+						}
+					}
+					else
+						DPRINTF(E_FATAL, L_GENERAL, "Option -%c takes one argument.\n", argv[i][1]);
+					break;
+					break;
 #ifdef __linux__
 		case 'S':
 			SETFLAG(SYSTEMD_MASK);
 			break;
 #endif
-		case 'V':
-			printf("Version " PACKAGE_VERSION "\n");
-			exit(0);
-			break;
-		default:
-			DPRINTF(E_ERROR, L_GENERAL, "Unknown option: %s\n", argv[i]);
-			runtime_vars.port = -1; // triggers help display
-		}
+				case 'V':
+					printf("Version " PACKAGE_VERSION "\n");
+					exit(0);
+					break;
+				default:
+					DPRINTF(E_ERROR, L_GENERAL, "Unknown option: %s\n", argv[i]);
+					runtime_vars.port = -1; // triggers help display
+			}
 	}
 
 	if (runtime_vars.port <= 0)
 	{
 		printf("Usage:\n\t"
-			"%s [-d] [-v] [-f config_file] [-p port]\n"
-			"\t\t[-i network_interface] [-u uid_to_run_as]\n"
-			"\t\t[-t notify_interval] [-P pid_filename]\n"
-			"\t\t[-s serial] [-m model_number]\n"
+					   "%s [-d] [-v] [-f config_file] [-p port]\n"
+					   "\t\t[-i network_interface] [-u uid_to_run_as]\n"
+					   "\t\t[-t notify_interval] [-P pid_filename]\n"
+					   "\t\t[-s serial] [-m model_number]\n"
 #ifdef __linux__
 			"\t\t[-w url] [-R] [-L] [-S] [-V] [-h]\n"
 #else
-			"\t\t[-R] [-L] [-V] [-h]\n"
+					   "\t\t[-R] [-V] [-h]\n"
 #endif
-			"\nNotes:\n\tNotify interval is in seconds. Default is 895 seconds.\n"
-			"\tDefault pid file is %s.\n"
-			"\tWith -d minidlna will run in debug mode (not daemonize).\n"
-			"\t-v enables verbose output\n"
-			"\t-h displays this text\n"
-			"\t-R forces a full rescan\n"
-			"\t-L do not create playlists\n"
+					   "\nNotes:\n\tNotify interval is in seconds. Default is 895 seconds.\n"
+					   "\tDefault pid file is %s.\n"
+					   "\tWith -d minidlna will run in debug mode (not daemonize).\n"
+					   "\t-v enables verbose output\n"
+					   "\t-h displays this text\n"
+					   "\t-R forces a full rescan\n"
 #ifdef __linux__
 			"\t-S changes behaviour for systemd\n"
 #endif
-			"\t-V print the version number\n",
-			argv[0], pidfilename);
+					   "\t-V print the version number\n",
+			   argv[0], pidfilename);
 		return 1;
 	}
 
@@ -648,12 +661,12 @@ init(int argc, char **argv)
 		struct stat st;
 		if (stat(db_path, &st) == 0 && st.st_uid != uid && chown(db_path, uid, -1) != 0)
 			DPRINTF(E_ERROR, L_GENERAL, "Unable to set db_path [%s] ownership to %d: %s\n",
-				db_path, uid, strerror(errno));
+					db_path, uid, strerror(errno));
 	}
 
 	if (uid > 0 && setuid(uid) == -1)
 		DPRINTF(E_FATAL, L_GENERAL, "Failed to switch to uid '%d'. [%s] EXITING.\n",
-			uid, strerror(errno));
+				uid, strerror(errno));
 
 	children = calloc(runtime_vars.max_connections, sizeof(struct child));
 	if (!children)
@@ -662,47 +675,10 @@ init(int argc, char **argv)
 		return 1;
 	}
 
-	return 0;
-}
-
-/* === main === */
-/* process HTTP or SSDP requests */
-int
-main(int argc, char **argv)
-{
-	int ret, i;
-	int shttpl = -1;
-	int smonitor = -1;
-
-	LIST_HEAD(httplisthead, upnphttp) upnphttphead;
-
-	struct upnphttp * e = 0,
-			        * next,
-			        * tmp;
-
-	fd_set readset,
-		   writeset;	/* for select() */
-
-	struct timeval timeout,
-			       timeofday,
-			       lastnotifytime = {0, 0};
-
-	time_t lastupdatetime = 0;
-
-	int max_fd = -1,
-		last_changecnt = 0;
-
-	pid_t scanner_pid = 0;
-
-	pthread_t inotify_thread = 0;
-
 	for (i = 0; i < L_MAX; i++)
 		log_level[i] = E_WARN;
-	init_nls();
 
-	ret = init(argc, argv);
-	if (ret != 0)
-		return 1;
+	init_nls();
 
 	DPRINTF(E_WARN, L_GENERAL, "Starting " SERVER_NAME " version " PACKAGE_VERSION ".\n");
 	if (sqlite3_libversion_number() < 3005001)

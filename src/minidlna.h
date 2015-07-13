@@ -143,9 +143,9 @@ extern struct runtime_vars_s runtime_vars;
 extern uint32_t runtime_flags;
 #define INOTIFY_MASK          0x0001
 #define DLNA_STRICT_MASK      0x0004
-#define NO_PLAYLIST_MASK      0x0008
 #define SYSTEMD_MASK          0x0010
 #define MERGE_MEDIA_DIRS_MASK 0x0020
+
 #ifdef ENABLE_VIDEO_THUMB
 #define THUMB_MASK            0x0080
 #endif
@@ -153,8 +153,6 @@ extern uint32_t runtime_flags;
 #define SETFLAG(mask)	runtime_flags |= mask
 #define GETFLAG(mask)	(runtime_flags & mask)
 #define CLEARFLAG(mask)	runtime_flags &= ~mask
-
-extern const char *pidfilename;
 
 extern char uuidvalue[];
 

@@ -91,7 +91,6 @@ char * strip_char(char *name, char c);
 int is_video(const char * file);
 int is_audio(const char * file);
 int is_image(const char * file);
-int is_playlist(const char * file);
 int is_caption(const char * file);
 int has_ignore(const char * dir, int checkboth);
 int resolve_unknown_type(const char * path, media_types dir_type);

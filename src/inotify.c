@@ -703,7 +703,6 @@ start_inotify()
 		{
 			if( next_pl_fill && (time(NULL) >= next_pl_fill) )
 			{
-				fill_playlists();
 				next_pl_fill = 0;
 			}
 			continue;

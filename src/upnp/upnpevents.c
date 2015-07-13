@@ -376,7 +376,7 @@ static void upnp_event_send(struct upnp_event_notify * obj)
 
 static void upnp_event_recv(struct upnp_event_notify * obj)
 {
-	ssize_t n;
+	int n;
 	n = recv(obj->s, obj->buffer, obj->buffersize, 0);
 	if(n<0) {
 		DPRINTF(E_ERROR, L_HTTP, "%s: recv(): %s\n", "upnp_event_recv", strerror(errno));

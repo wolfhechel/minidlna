@@ -36,29 +36,18 @@
 #define MUSIC_ALBUM_ID		"1$7"
 #define MUSIC_PLIST_ID		"1$F"
 #define MUSIC_DIR_ID		"1$14"
-#define MUSIC_CONTRIB_ARTIST_ID	"1$100"
-#define MUSIC_ALBUM_ARTIST_ID	"1$107"
-#define MUSIC_COMPOSER_ID	"1$108"
-#define MUSIC_RATING_ID		"1$101"
 
 #define VIDEO_ID		"2"
 #define VIDEO_ALL_ID		"2$8"
-#define VIDEO_GENRE_ID		"2$9"
-#define VIDEO_ACTOR_ID		"2$A"
 #define VIDEO_SERIES_ID		"2$E"
 #define VIDEO_MOVIES_ID		"2$F"
-#define VIDEO_PLIST_ID		"2$10"
 #define VIDEO_DIR_ID		"2$15"
-#define VIDEO_RATING_ID		"2$200"
 
 #define IMAGE_ID		"3"
 #define IMAGE_ALL_ID		"3$B"
 #define IMAGE_DATE_ID		"3$C"
-#define IMAGE_ALBUM_ID		"3$D"
 #define IMAGE_CAMERA_ID		"3$D2" // PlaysForSure == Keyword
-#define IMAGE_PLIST_ID		"3$11"
 #define IMAGE_DIR_ID		"3$16"
-#define IMAGE_RATING_ID		"3$300"
 
 extern int valid_cache;
 
