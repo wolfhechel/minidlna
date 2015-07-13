@@ -46,7 +46,6 @@
 #include "scanner.h"
 #include "metadata.h"
 #include "albumart.h"
-#include "playlist.h"
 #include "log.h"
 
 #define EVENT_SIZE  ( sizeof (struct inotify_event) )
@@ -64,7 +63,6 @@ struct watch
 
 static struct watch *watches;
 static struct watch *lastwatch = NULL;
-static time_t next_pl_fill = 0;
 
 char *get_path_from_wd(int wd)
 {
@@ -320,24 +318,20 @@ inotify_insert_file(char * name, const char * path)
 		case ALL_MEDIA:
 			if( !is_image(path) &&
 			    !is_audio(path) &&
-			    !is_video(path) &&
-			    !is_playlist(path) )
+			    !is_video(path) )
 				return -1;
 			break;
 		case TYPE_AUDIO:
-			if( !is_audio(path) &&
-			    !is_playlist(path) )
+			if( !is_audio(path) )
 				return -1;
 			break;
 		case TYPE_AUDIO|TYPE_VIDEO:
 			if( !is_audio(path) &&
-			    !is_video(path) &&
-			    !is_playlist(path) )
+			    !is_video(path) )
 			break;
 		case TYPE_AUDIO|TYPE_IMAGES:
 			if( !is_image(path) &&
-			    !is_audio(path) &&
-			    !is_playlist(path) )
+			    !is_audio(path) )
 				return -1;
 			break;
 		case TYPE_VIDEO:
@@ -363,13 +357,7 @@ inotify_insert_file(char * name, const char * path)
 		return -1;
 
 	ts = sql_get_int_field(db, "SELECT TIMESTAMP from DETAILS where PATH = '%q'", path);
-	if( !ts && is_playlist(path) && (sql_get_int_field(db, "SELECT ID from PLAYLISTS where PATH = '%q'", path) > 0) )
-	{
-		DPRINTF(E_DEBUG, L_INOTIFY, "Re-reading modified playlist (%s).\n", path);
-		inotify_remove_file(path);
-		next_pl_fill = 1;
-	}
-	else if( ts < st.st_mtime )
+	if( ts < st.st_mtime )
 	{
 		if( ts > 0 )
 			DPRINTF(E_DEBUG, L_INOTIFY, "%s is newer than the last db entry.\n", path);
@@ -429,11 +417,7 @@ inotify_insert_file(char * name, const char * path)
 		//DEBUG DPRINTF(E_DEBUG, L_INOTIFY, "Inserting %s\n", name);
 		insert_file(name, path, id+2, get_next_available_id("OBJECTS", id), types);
 		sqlite3_free(id);
-		if( (is_audio(path) || is_playlist(path)) && next_pl_fill != 1 )
-		{
-			next_pl_fill = time(NULL) + 120; // Schedule a playlist scan for 2 minutes from now.
-			//DEBUG DPRINTF(E_WARN, L_INOTIFY,  "Playlist scan scheduled for %s", ctime(&next_pl_fill));
-		}
+
 		if( is_video(path))
 			GenerateMTA(path);
 	}
@@ -543,7 +527,7 @@ inotify_remove_file(const char * path)
 	char *ptr;
 	char **result;
 	int64_t detailID;
-	int rows, playlist;
+	int rows;
 
 	if( is_caption(path) )
 	{
@@ -551,61 +535,43 @@ inotify_remove_file(const char * path)
 	}
 	/* Invalidate the scanner cache so we don't insert files into non-existent containers */
 	valid_cache = 0;
-	playlist = is_playlist(path);
-	id = sql_get_text_field(db, "SELECT ID from %s where PATH = '%q'", playlist?"PLAYLISTS":"DETAILS", path);
+
+	id = sql_get_text_field(db, "SELECT ID from DETAILS where PATH = '%q'", path);
 	if( !id )
 		return 1;
 	detailID = strtoll(id, NULL, 10);
 	sqlite3_free(id);
-	if( playlist )
-	{
-		sql_exec(db, "DELETE from PLAYLISTS where ID = %lld", detailID);
-		sql_exec(db, "DELETE from DETAILS where ID ="
-		             " (SELECT DETAIL_ID from OBJECTS where OBJECT_ID = '%s$%llX')",
-		         MUSIC_PLIST_ID, detailID);
-		sql_exec(db, "DELETE from OBJECTS where OBJECT_ID = '%s$%llX' or PARENT_ID = '%s$%llX'",
-		         MUSIC_PLIST_ID, detailID, MUSIC_PLIST_ID, detailID);
-	}
-	else
-	{
-		/* Delete the parent containers if we are about to empty them. */
-		snprintf(sql, sizeof(sql), "SELECT PARENT_ID from OBJECTS where DETAIL_ID = %lld"
-		                           " and PARENT_ID not like '64$%%'",
-		                           (long long int)detailID);
-		if( (sql_get_table(db, sql, &result, &rows, NULL) == SQLITE_OK) )
-		{
-			int i, children;
-			for( i = 1; i <= rows; i++ )
-			{
-				/* If it's a playlist item, adjust the item count of the playlist */
-				if( strncmp(result[i], MUSIC_PLIST_ID, strlen(MUSIC_PLIST_ID)) == 0 )
-				{
-					sql_exec(db, "UPDATE PLAYLISTS set FOUND = (FOUND-1) where ID = %d",
-					         atoi(strrchr(result[i], '$') + 1));
-				}
 
-				children = sql_get_int_field(db, "SELECT count(*) from OBJECTS where PARENT_ID = '%s'", result[i]);
-				if( children < 0 )
-					continue;
-				if( children < 2 )
+	/* Delete the parent containers if we are about to empty them. */
+	snprintf(sql, sizeof(sql), "SELECT PARENT_ID from OBJECTS where DETAIL_ID = %lld"
+							   " and PARENT_ID not like '64$%%'",
+							   (long long int)detailID);
+	if( (sql_get_table(db, sql, &result, &rows, NULL) == SQLITE_OK) )
+	{
+		int i, children;
+		for( i = 1; i <= rows; i++ )
+		{
+			children = sql_get_int_field(db, "SELECT count(*) from OBJECTS where PARENT_ID = '%s'", result[i]);
+			if( children < 0 )
+				continue;
+			if( children < 2 )
+			{
+				sql_exec(db, "DELETE from OBJECTS where OBJECT_ID = '%s'", result[i]);
+
+				ptr = strrchr(result[i], '$');
+				if( ptr )
+					*ptr = '\0';
+				if( sql_get_int_field(db, "SELECT count(*) from OBJECTS where PARENT_ID = '%s'", result[i]) == 0 )
 				{
 					sql_exec(db, "DELETE from OBJECTS where OBJECT_ID = '%s'", result[i]);
-
-					ptr = strrchr(result[i], '$');
-					if( ptr )
-						*ptr = '\0';
-					if( sql_get_int_field(db, "SELECT count(*) from OBJECTS where PARENT_ID = '%s'", result[i]) == 0 )
-					{
-						sql_exec(db, "DELETE from OBJECTS where OBJECT_ID = '%s'", result[i]);
-					}
 				}
 			}
-			sqlite3_free_table(result);
 		}
-		/* Now delete the actual objects */
-		sql_exec(db, "DELETE from DETAILS where ID = %lld", detailID);
-		sql_exec(db, "DELETE from OBJECTS where DETAIL_ID = %lld", detailID);
+		sqlite3_free_table(result);
 	}
+	/* Now delete the actual objects */
+	sql_exec(db, "DELETE from DETAILS where ID = %lld", detailID);
+	sql_exec(db, "DELETE from OBJECTS where DETAIL_ID = %lld", detailID);
 	snprintf(art_cache, sizeof(art_cache), "%s/art_cache%s", db_path, path);
 
 #ifdef ENABLE_VIDEO_THUMB
@@ -701,10 +667,6 @@ start_inotify()
                 length = poll(pollfds, 1, timeout);
 		if( !length )
 		{
-			if( next_pl_fill && (time(NULL) >= next_pl_fill) )
-			{
-				next_pl_fill = 0;
-			}
 			continue;
 		}
 		else if( length < 0 )
