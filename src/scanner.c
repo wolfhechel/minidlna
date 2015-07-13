@@ -53,9 +53,6 @@ typedef const struct dirent scan_filter;
 #else
 typedef struct dirent scan_filter;
 #endif
-#ifndef AV_LOG_PANIC
-#define AV_LOG_PANIC AV_LOG_FATAL
-#endif
 
 int valid_cache = 0;
 
@@ -97,8 +94,8 @@ insert_container(const char *item, const char *rootParent, const char *refID, co
 	result = sql_get_text_field(db, "SELECT OBJECT_ID from OBJECTS o "
 	                                "left join DETAILS d on (o.DETAIL_ID = d.ID)"
 	                                " where o.PARENT_ID = '%s'"
-			                " and o.NAME like '%q'"
-			                " and d.ARTIST %s %Q"
+			                        " and o.NAME like '%q'"
+			                        " and d.ARTIST %s %Q"
 	                                " and o.CLASS = 'container.%s' limit 1",
 	                                rootParent, item, artist?"like":"is", artist, class);
 	if( result )
@@ -327,7 +324,6 @@ insert_containers(const char *name, const char *path, const char *refID, const c
 			if( valid_cache && strcmp(album, last_album.name) == 0 )
 			{
 				last_album.objectID++;
-				//DEBUG DPRINTF(E_DEBUG, L_SCANNER, "Using last album item: %s/%s/%X\n", last_album.name, last_album.parentID, last_album.objectID);
 			}
 			else
 			{
@@ -335,7 +331,6 @@ insert_containers(const char *name, const char *path, const char *refID, const c
 				insert_container(album, MUSIC_ALBUM_ID, NULL, "album.musicAlbum", artist, genre, album_art, &objectID, &parentID);
 				sprintf(last_album.parentID, MUSIC_ALBUM_ID"$%llX", (long long)parentID);
 				last_album.objectID = objectID;
-				//DEBUG DPRINTF(E_DEBUG, L_SCANNER, "Creating cached album item: %s/%s/%X\n", last_album.name, last_album.parentID, last_album.objectID);
 			}
 			sql_exec(db, "INSERT into OBJECTS"
 			             " (OBJECT_ID, PARENT_ID, REF_ID, CLASS, DETAIL_ID, NAME) "
@@ -363,7 +358,6 @@ insert_containers(const char *name, const char *path, const char *refID, const c
 			if( valid_cache && strcmp(album?album:_("Unknown Album"), last_artistAlbum.name) == 0 )
 			{
 				last_artistAlbum.objectID++;
-				//DEBUG DPRINTF(E_DEBUG, L_SCANNER, "Using last artist/album item: %s/%s/%X\n", last_artist.name, last_artist.parentID, last_artist.objectID);
 			}
 			else
 			{
@@ -372,7 +366,6 @@ insert_containers(const char *name, const char *path, const char *refID, const c
 				sprintf(last_artistAlbum.parentID, "%s$%llX", last_artist.parentID, (long long)parentID);
 				last_artistAlbum.objectID = objectID;
 				strncpyt(last_artistAlbum.name, album ? album : _("Unknown Album"), sizeof(last_artistAlbum.name));
-				//DEBUG DPRINTF(E_DEBUG, L_SCANNER, "Creating cached artist/album item: %s/%s/%X\n", last_artist.name, last_artist.parentID, last_artist.objectID);
 			}
 			sql_exec(db, "INSERT into OBJECTS"
 			             " (OBJECT_ID, PARENT_ID, REF_ID, CLASS, DETAIL_ID, NAME) "
@@ -407,12 +400,17 @@ insert_containers(const char *name, const char *path, const char *refID, const c
 			}
 			else
 			{
-				insert_container(artist?artist:_("Unknown Artist"), last_genre.parentID, artist?last_artist.parentID:NULL,
-				                 "person.musicArtist", NULL, genre, NULL, &objectID, &parentID);
+				insert_container(artist ? artist : _("Unknown Artist"),
+								 last_genre.parentID,
+								 artist ? last_artist.parentID : NULL,
+				                 "person.musicArtist",
+								 NULL, genre,
+								 NULL,
+								 &objectID,
+								 &parentID);
 				sprintf(last_genreArtist.parentID, "%s$%llX", last_genre.parentID, (long long)parentID);
 				last_genreArtist.objectID = objectID;
 				strncpyt(last_genreArtist.name, artist ? artist : _("Unknown Artist"), sizeof(last_genreArtist.name));
-				//DEBUG DPRINTF(E_DEBUG, L_SCANNER, "Creating cached genre/artist item: %s/%s/%X\n", last_genreArtist.name, last_genreArtist.parentID, last_genreArtist.objectID);
 			}
 			sql_exec(db, "INSERT into OBJECTS"
 			             " (OBJECT_ID, PARENT_ID, REF_ID, CLASS, DETAIL_ID, NAME) "
@@ -623,28 +621,7 @@ CreateDatabase(void)
 	                    BROWSEDIR_ID, "0", _("Browse Folders"),
 			0 };
 
-	ret = sql_exec(db, create_objectTable_sqlite);
-	if( ret != SQLITE_OK )
-		goto sql_failed;
-	ret = sql_exec(db, create_detailTable_sqlite);
-	if( ret != SQLITE_OK )
-		goto sql_failed;
-	ret = sql_exec(db, create_albumArtTable_sqlite);
-	if( ret != SQLITE_OK )
-		goto sql_failed;
-	ret = sql_exec(db, create_captionTable_sqlite);
-	if( ret != SQLITE_OK )
-		goto sql_failed;
-	ret = sql_exec(db, create_bookmarkTable_sqlite);
-	if( ret != SQLITE_OK )
-		goto sql_failed;
-	ret = sql_exec(db, create_MTATable_sqlite);
-	if( ret != SQLITE_OK )
-		goto sql_failed;
-	ret = sql_exec(db, create_playlistTable_sqlite);
-	if( ret != SQLITE_OK )
-		goto sql_failed;
-	ret = sql_exec(db, create_settingsTable_sqlite);
+	ret = sql_exec(db, db_schema);
 	if( ret != SQLITE_OK )
 		goto sql_failed;
 	ret = sql_exec(db, "INSERT into SETTINGS values ('UPDATE_ID', '0')");

@@ -55,7 +55,6 @@ sql_get_table(sqlite3 *db, const char *sql, char ***pazResult, int *pnRow, int *
 {
 	int ret;
 	char *errMsg = NULL;
-	//DPRINTF(E_DEBUG, L_DB_SQL, "SQL: %s\n", sql);
 	
 	ret = sqlite3_get_table(db, sql, pazResult, pnRow, pnColumn, &errMsg);
 	if( ret != SQLITE_OK )

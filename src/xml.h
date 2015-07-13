@@ -36,6 +36,9 @@
 #include <stdint.h>
 #include <sys/queue.h>
 
+static const char xmlver[] =
+		"<?xml version=\"1.0\"?>\r\n";
+
 #define IS_WHITE_SPACE(c) ((c==' ') || (c=='\t') || (c=='\r') || (c=='\n'))
 
 #define XML_STORE_EMPTY_FL  0x01

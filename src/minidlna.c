@@ -66,11 +66,20 @@
 #ifdef ENABLE_NLS
 #include <locale.h>
 #include <libintl.h>
+
+static void init_nls(void) {
+	setlocale(LC_MESSAGES, "");
+	setlocale(LC_CTYPE, "en_US.utf8");
+	DPRINTF(E_DEBUG, L_GENERAL, "Using locale dir %s\n", bindtextdomain("minidlna", getenv("TEXTDOMAINDIR")));
+	textdomain("minidlna");
+}
+#else
+#define init_nls() ({})
 #endif
 
 #include "minidlna.h"
 #include "upnp/upnphttp.h"
-#include "upnp/minissdp.h"
+#include "upnp/ssdp.h"
 #include "upnp/upnpevents.h"
 #include "sql.h"
 #include "getifaddr.h"
@@ -174,15 +183,6 @@ getfriendlyname(char *buf, int len)
 	}
 #endif
 	snprintf(buf+off, len-off, "%s", logname?logname:"Unknown");
-}
-
-static void init_nls(void) {
-#ifdef ENABLE_NLS
-	setlocale(LC_MESSAGES, "");
-	setlocale(LC_CTYPE, "en_US.utf8");
-	DPRINTF(E_DEBUG, L_GENERAL, "Using locale dir %s\n", bindtextdomain("minidlna", getenv("TEXTDOMAINDIR")));
-	textdomain("minidlna");
-#endif
 }
 
 /* init phase :

@@ -76,14 +76,16 @@ int xasprintf(char **strp, char *fmt, ...) __attribute__((__format__ (__printf__
 void x_strlcat(char *dst, const char *src, size_t size);
 void x_strlcpy(char *dst, const char *src, size_t size);
 int ends_with(const char * haystack, const char * needle);
-char *trim(char *str);
-char *strstrc(const char *s, const char *p, const char t);
-char *strcasestrc(const char *s, const char *p, const char t);
-char *modifyString(char *string, const char *before, const char *after, int noalloc);
-char *escape_tag(const char *tag, int force_alloc);
-char *unescape_tag(const char *tag, int force_alloc);
-char *strip_ext(char *name);
-char *strip_char(char *name, char c);
+char * trim(char *str);
+char * strstrc(const char *s, const char *p, const char t);
+char * strcasestrc(const char *s, const char *p, const char t);
+char * strcat_str(char * str, int * len, int * tmplen, const char * s2);
+char * strcat_char(char * str, int * len, int * tmplen, char c);
+char * modifyString(char *string, const char *before, const char *after, int noalloc);
+char * escape_tag(const char *tag, int force_alloc);
+char * unescape_tag(const char *tag, int force_alloc);
+char * strip_ext(char *name);
+char * strip_char(char *name, char c);
 
 /* Metadata functions */
 int is_video(const char * file);

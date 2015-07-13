@@ -26,8 +26,8 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef __MINISSDP_H__
-#define __MINISSDP_H__
+#ifndef __SSDP_H__
+#define __SSDP_H__
 
 int OpenAndConfSSDPNotifySocket(struct lan_addr_s *iface);
 

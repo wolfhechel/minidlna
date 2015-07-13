@@ -40,32 +40,6 @@ struct XMLElt {
 	const char * data;	/* Value */
 };
 
-/* for service description */
-struct serviceDesc {
-	const struct action * actionList;
-	const struct stateVar * serviceStateTable;
-};
-
-struct action {
-	const char * name;
-	const struct argument * args;
-};
-
-struct argument {
-	const char * name;		/* the name of the argument */
-	unsigned char dir;		/* 1 = in, 2 = out */
-	unsigned char relatedVar;	/* index of the related variable */
-};
-
-#define EVENTED 1<<7
-struct stateVar {
-	const char * name;
-	unsigned char itype;	/* MSB: sendEvent flag, 7 LSB: index in upnptypes */
-	unsigned char idefault;	/* default value */
-	unsigned char iallowedlist;	/* index in allowed values list */
-	unsigned char ieventvalue;	/* fixed value returned or magical values */
-};
-
 /* little endian 
  * The code has now be tested on big endian architecture */
 #define INITHELPER(i, n) ((char *)((n<<16)|i))
@@ -74,28 +48,6 @@ struct stateVar {
  * returns: NULL on error, string allocated on the heap */
 char *
 genRootDesc(int * len);
-
-char *
-genRootDescSamsung(int * len);
-
-/* for the two following functions */
-char *
-genContentDirectory(int * len);
-
-char *
-genConnectionManager(int * len);
-
-char *
-genX_MS_MediaReceiverRegistrar(int * len);
-
-char *
-getVarsContentDirectory(int * len);
-
-char *
-getVarsConnectionManager(int * len);
-
-char *
-getVarsX_MS_MediaReceiverRegistrar(int * len);
 
 #endif
 

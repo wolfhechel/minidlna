@@ -57,6 +57,22 @@
 #include <avformat.h>
 #endif
 
+#ifdef ENABLE_VIDEO_THUMB
+#if HAVE_FFMPEG_LIBSWSCALE_SWSCALE_H
+#include <ffmpeg/libswscale/swscale.h>
+#elif HAVE_LIBAV_LIBSWSCALE_SWSCALE_H
+#include <libav/libswscale/swscale.h>
+#elif HAVE_LIBSWSCALE_SWSCALE_H
+#include <libswscale/swscale.h>
+#elif HAVE_FFMPEG_SWSCALE_H
+#include <ffmpeg/swscale.h>
+#elif HAVE_LIBAV_SWSCALE_H
+#include <libav/swscale.h>
+#elif HAVE_SWSCALE_H
+#include <swscale.h>
+#endif
+#endif
+
 #ifndef FF_PROFILE_H264_BASELINE
 #define FF_PROFILE_H264_BASELINE 66
 #endif
@@ -113,6 +129,10 @@
 #define av_dict_get av_metadata_get
 typedef AVMetadataTag AVDictionaryEntry;
 # endif
+#endif
+
+#ifndef AV_LOG_PANIC
+#define AV_LOG_PANIC AV_LOG_FATAL
 #endif
 
 static inline int

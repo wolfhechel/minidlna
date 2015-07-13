@@ -45,7 +45,6 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#include "config.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -56,19 +55,17 @@
 #include <time.h>
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <sys/param.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <fcntl.h>
-#include <errno.h>
 #include <uuid/uuid.h>
 
 #include "upnpevents.h"
-#include "minidlnapath.h"
-#include "minidlna.h"
-#include "upnpdescgen.h"
-#include "utils.h"
 #include "log.h"
+
+#include "svc_connectionmgr.h"
+#include "svc_contentdirectory.h"
+#include "svc_x_ms_mediareceiverregistrar.h"
 
 /* stuctures definitions */
 struct subscriber {
@@ -81,20 +78,24 @@ struct subscriber {
 	char callback[];
 };
 
+enum upnp_event_state {
+	ECreated = 1,
+	EConnecting,
+	ESending,
+	EWaitingForResponse,
+	EFinished,
+	EError
+};
+
 struct upnp_event_notify {
 	LIST_ENTRY(upnp_event_notify) entries;
     int s;  /* socket */
-    enum { ECreated=1,
-	       EConnecting,
-	       ESending,
-	       EWaitingForResponse,
-	       EFinished,
-	       EError } state;
+    enum upnp_event_state state;
     struct subscriber * sub;
     char * buffer;
-    int buffersize;
-	int tosend;
-    int sent;
+    size_t buffersize;
+	size_t tosend;
+    size_t sent;
 	const char * path;
 	char addrstr[16];
 	char portstr[8];
@@ -346,7 +347,7 @@ static void upnp_event_prepare(struct upnp_event_notify * obj)
 		xml = NULL;
 		l = 0;
 	}
-	obj->tosend = asprintf(&(obj->buffer), notifymsg,
+	obj->tosend = (size_t)asprintf(&(obj->buffer), notifymsg,
 	                       obj->path, obj->addrstr, obj->portstr, l+2,
 	                       obj->sub->uuid, obj->sub->seq,
 	                       l, xml);
@@ -358,8 +359,8 @@ static void upnp_event_prepare(struct upnp_event_notify * obj)
 
 static void upnp_event_send(struct upnp_event_notify * obj)
 {
-	int i;
-	//DEBUG DPRINTF(E_DEBUG, L_HTTP, "Sending UPnP Event:\n%s", obj->buffer+obj->sent);
+	ssize_t i;
+
 	while( obj->sent < obj->tosend ) {
 		i = send(obj->s, obj->buffer + obj->sent, obj->tosend - obj->sent, 0);
 		if(i<0) {
@@ -375,7 +376,7 @@ static void upnp_event_send(struct upnp_event_notify * obj)
 
 static void upnp_event_recv(struct upnp_event_notify * obj)
 {
-	int n;
+	ssize_t n;
 	n = recv(obj->s, obj->buffer, obj->buffersize, 0);
 	if(n<0) {
 		DPRINTF(E_ERROR, L_HTTP, "%s: recv(): %s\n", "upnp_event_recv", strerror(errno));
@@ -472,13 +473,7 @@ void upnpevents_processfds(fd_set *readset, fd_set *writeset)
 			}
 			if(obj->sub)
 				obj->sub->notify = NULL;
-#if 0 /* Just let it time out instead of explicitly removing the subscriber */
-			/* remove also the subscriber from the list if there was an error */
-			if(obj->state == EError && obj->sub) {
-				LIST_REMOVE(obj->sub, entries);
-				free(obj->sub);
-			}
-#endif
+
 			free(obj->buffer);
 			LIST_REMOVE(obj, entries);
 			free(obj);

@@ -47,7 +47,7 @@
 #include "minidlna.h"
 #include "xml.h"
 #include "getifaddr.h"
-#include "minissdp.h"
+#include "ssdp.h"
 #include "utils.h"
 #include "log.h"
 

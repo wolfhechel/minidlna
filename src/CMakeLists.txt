@@ -1,7 +1,7 @@
 set (SOURCES upnp/upnphttp.c
              upnp/upnpdescgen.c
              upnp/upnpsoap.c
-             upnp/minissdp.c
+             upnp/ssdp.c
              upnp/upnpevents.c
              tagutils/tagutils.c
              minidlna.c
@@ -95,7 +95,7 @@ configure_file (
     "${CMAKE_CURRENT_BINARY_DIR}/config.h"
 )
 
-add_executable(minidlnad ${SOURCES} ${HEADERS})
+add_executable(minidlnad ${SOURCES} ${HEADERS} upnp/svc_contentdirectory.h upnp/svc_contentdirectory.c upnp/svc_connectionmgr.h upnp/svc_connectionmgr.c upnp/svc_x_ms_mediareceiverregistrar.h upnp/svc_x_ms_mediareceiverregistrar.c upnp/svcdesc.h upnp/svcdesc.c)
 
 target_link_libraries (minidlnad ${minidlnad_LIBS})
 

@@ -62,7 +62,7 @@
 #endif
 #include "minidlna.h"
 #include "getifaddr.h"
-#include "upnp/minissdp.h"
+#include "upnp/ssdp.h"
 #include "utils.h"
 #include "log.h"
 

@@ -211,6 +211,64 @@ modifyString(char *string, const char *before, const char *after, int noalloc)
 	return string;
 }
 
+
+
+/* strcat_str()
+ * concatenate the string and use realloc to increase the
+ * memory buffer if needed. */
+char *
+strcat_str(char * str, int * len, int * tmplen, const char * s2)
+{
+	char *p;
+	int s2len;
+	s2len = (int)strlen(s2);
+	if(*tmplen <= (*len + s2len))
+	{
+		if(s2len < 256)
+			*tmplen += 256;
+		else
+			*tmplen += s2len + 1;
+		p = realloc(str, *tmplen);
+		if (!p)
+		{
+			if(s2len < 256)
+				*tmplen -= 256;
+			else
+				*tmplen -= s2len + 1;
+			return str;
+		}
+		else
+			str = p;
+	}
+	memcpy(str + *len, s2, s2len + 1);
+	*len += s2len;
+	return str;
+}
+
+/* strcat_char() :
+ * concatenate a character and use realloc to increase the
+ * size of the memory buffer if needed */
+char *
+strcat_char(char * str, int * len, int * tmplen, char c)
+{
+	char *p;
+	if(*tmplen <= (*len + 1))
+	{
+		*tmplen += 256;
+		p = (char *)realloc(str, *tmplen);
+		if (!p)
+		{
+			*tmplen -= 256;
+			return str;
+		}
+		else
+			str = p;
+	}
+	str[*len] = c;
+	(*len)++;
+	return str;
+}
+
 char *
 unescape_tag(const char *tag, int force_alloc)
 {

@@ -56,28 +56,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#ifdef ENABLE_VIDEO_THUMB
-#if HAVE_FFMPEG_LIBSWSCALE_SWSCALE_H
-#include <ffmpeg/libswscale/swscale.h>
-#elif HAVE_LIBAV_LIBSWSCALE_SWSCALE_H
-#include <libav/libswscale/swscale.h>
-#elif HAVE_LIBSWSCALE_SWSCALE_H
-#include <libswscale/swscale.h>
-#elif HAVE_FFMPEG_SWSCALE_H
-#include <ffmpeg/swscale.h>
-#elif HAVE_LIBAV_SWSCALE_H
-#include <libav/swscale.h>
-#elif HAVE_SWSCALE_H
-#include <swscale.h>
-#endif
-#endif
-
 #include "minidlna.h"
 #include "image_utils.h"
 #include "libav.h"
 #include "log.h"
 #include "video_thumb.h"
 #include "utils.h"
+#include "crypt.h"
 
 
 #ifdef ENABLE_VIDEO_THUMB
